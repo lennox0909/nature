@@ -143,6 +143,52 @@
             to { opacity: 1; }
         }
 
+        /* 導覽選單樣式 (System Terminal 風格) */
+        .nav-menu {
+            position: absolute;
+            top: 30px;
+            right: 40px;
+            z-index: 20;
+            display: flex;
+            gap: 30px;
+        }
+
+        .nav-item {
+            color: #5bb3b3; /* 圖片中帶有灰階感的暗青色 */
+            font-family: 'Orbitron', sans-serif;
+            font-size: 16px;
+            font-weight: 700;
+            text-decoration: none;
+            letter-spacing: 4px;
+            text-transform: uppercase;
+            text-shadow: 0 0 5px rgba(91, 179, 179, 0.6);
+            transition: color 0.3s ease, text-shadow 0.3s ease;
+            display: flex;
+            align-items: center;
+        }
+
+        /* 加上 ">" 符號作為互動裝飾 */
+        .nav-item::before {
+            content: '>';
+            margin-right: 8px;
+            opacity: 0;
+            color: var(--tron-cyan);
+            transition: opacity 0.3s ease, text-shadow 0.3s ease, transform 0.3s ease;
+            transform: translateX(-10px);
+        }
+
+        /* Hover 時亮起成高亮度霓虹，並滑入 ">" 符號 */
+        .nav-item:hover {
+            color: var(--tron-cyan);
+            text-shadow: 0 0 8px var(--tron-cyan), 0 0 15px var(--tron-cyan);
+        }
+
+        .nav-item:hover::before {
+            opacity: 1;
+            transform: translateX(0);
+            text-shadow: 0 0 8px var(--tron-cyan);
+        }
+
     </style>
 </head>
 <body>
@@ -156,6 +202,14 @@
 
     <!-- 系統狀態提示 -->
     <div class="status-text">SYSTEM > <span id="status-msg">INITIALIZING...</span></div>
+
+    <!-- 終端機風格導覽選單 -->
+    <nav class="nav-menu">
+        <a href="#" class="nav-item">Home</a>
+        <a href="#" class="nav-item">Works</a>
+        <a href="#" class="nav-item">About</a>
+        <a href="#" class="nav-item">Contact</a>
+    </nav>
 
     <!-- 主要 SVG 畫布 -->
     <svg id="main-svg" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid meet">
