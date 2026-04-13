@@ -1,0 +1,12 @@
+body {
+    background-color: #121212;
+    color: #e0e0e0;
+    overscroll-behavior-y: contain;
+    /* 防止手機下拉重整 */
+}
+
+canvas {
+    image-rendering: pixelated;
+    touch-action: none;
+    /* 防止觸控滑動時捲動頁面 */
+}

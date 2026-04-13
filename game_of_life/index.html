@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>John Conway's Game of Life</title>
+    <!-- 引入 Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 MathJax 用於渲染數學公式 -->
+    <script src="https://polyfill.io/v3/polyfill.min.js?features=es6"></script>
+    <script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>
+    <link rel="stylesheet" href="style.css">
+</head>
+<!-- 移除了 justify-center 改用 py-10 讓長內容可以正常向下滾動 -->
+<body class="flex flex-col items-center min-h-screen py-10 px-4 font-sans">
+
+    <div class="max-w-4xl w-full flex flex-col items-center gap-6">
+        
+        <!-- 標題與遊戲區塊 -->
+        <div class="text-center">
+            <h1 class="text-3xl md:text-4xl font-bold mb-2 text-green-400">John Conway's Game of Life</h1>
+            <p class="text-gray-400 text-sm md:text-base">Visualize Celluar Evolution: Click or Drag to Make/Erase Cells.</p>
+            <!-- <p class="text-gray-400 text-sm md:text-base">點擊或拖曳網格繪製細胞（點擊活細胞可變為橡皮擦），觀察它們的演化。</p> -->
+        </div>
+        
+        <!-- 畫布容器 -->
+        <div id="canvas-container" class="w-full aspect-video bg-black border-2 border-gray-700 rounded-lg shadow-2xl overflow-hidden relative">
+            <canvas id="gameCanvas" class="w-full h-full cursor-crosshair"></canvas>
+        </div>
+        
+        <!-- 控制面板 -->
+        <div class="flex flex-wrap justify-center gap-3 w-full">
+            <button id="startBtn" class="flex-1 min-w-[120px] bg-green-600 hover:bg-green-500 text-white font-semibold py-2 px-4 rounded-lg transition-colors shadow-lg">
+                <!-- 開始 / 暫停 -->
+                 Auto / Pause
+            </button>
+            <button id="stepBtn" class="flex-1 min-w-[120px] bg-blue-600 hover:bg-blue-500 text-white font-semibold py-2 px-4 rounded-lg transition-colors shadow-lg">
+                <!-- 單步執行 -->
+                 Step
+            </button>
+            <button id="randomBtn" class="flex-1 min-w-[120px] bg-purple-600 hover:bg-purple-500 text-white font-semibold py-2 px-4 rounded-lg transition-colors shadow-lg">
+                <!-- 隨機生成 -->
+                Random Cells
+            </button>
+            <button id="clearBtn" class="flex-1 min-w-[120px] bg-red-600 hover:bg-red-500 text-white font-semibold py-2 px-4 rounded-lg transition-colors shadow-lg">
+                <!-- 清除畫布 -->
+                Clear Canvas
+            </button>
+        </div>
+
+        <!-- 速度設定區 -->
+        <div class="w-full bg-gray-800 p-4 rounded-lg shadow-lg flex items-center gap-4 text-sm border border-gray-700">
+            <label class="font-bold text-yellow-400 whitespace-nowrap">
+                <!-- 演化速度 (FPS): -->
+                Speed (FPS):
+            </label>
+            <input type="range" id="speedSlider" min="1" max="60" value="15" class="flex-1 accent-yellow-500">
+            <span id="speedVal" class="w-8 font-mono font-bold text-yellow-400 text-right">15</span>
+        </div>
+
+        <!-- 規則設定區 (折疊拉桿) -->
+        <details class="w-full bg-gray-800 rounded-lg shadow-lg border border-gray-700 group">
+            <summary class="cursor-pointer p-4 font-bold text-gray-200 flex justify-between items-center select-none outline-none hover:bg-gray-700/50 transition-colors rounded-lg">
+                <div class="flex items-center gap-2">
+                    <svg class="w-5 h-5 text-indigo-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path></svg>
+                    <span>
+                        <!-- 自訂演化規則參數 (點擊展開) -->
+                        Parameter Settings
+                    </span>
+                </div>
+                <svg class="w-5 h-5 transition-transform duration-300 group-open:rotate-180" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 9l-7 7-7-7"></path></svg>
+            </summary>
+            
+            <div class="p-5 border-t border-gray-700 flex flex-col md:flex-row gap-8 justify-center text-sm bg-gray-800/30 rounded-b-lg">
+                <!-- 生存與死亡規則 -->
+                <div class="flex-1 space-y-4">
+                    <h3 class="text-blue-400 font-bold border-b border-gray-700 pb-2 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-blue-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        穩定存續 (Survival) 區間
+                        <!-- Survival -->
+                    </h3>
+                    <p class="text-xs text-gray-400 mb-2 leading-relaxed">設定細胞能「穩定存續」的鄰居數範圍。超出此範圍即觸發死亡規則。</p>
+                    
+                    <div class="flex flex-col gap-2">
+                        <label class="text-gray-300 flex justify-between items-center">
+                            <span><span class="text-red-400 font-semibold">人口過少 (Underpopulation)</span> 門檻:</span>
+                            <span id="surviveMinVal" class="font-mono font-bold text-blue-400 bg-gray-900 px-2 py-0.5 rounded">2</span>
+                        </label>
+                        <input type="range" id="surviveMin" min="0" max="8" value="2" class="w-full accent-blue-500 cursor-pointer">
+                        <span class="text-xs text-gray-500 text-right">鄰居低於此值將因孤單死亡</span>
+                    </div>
+                    
+                    <div class="flex flex-col gap-2 mt-4">
+                        <label class="text-gray-300 flex justify-between items-center">
+                            <span><span class="text-red-400 font-semibold">人口過剩 (Overpopulation)</span> 門檻:</span>
+                            <span id="surviveMaxVal" class="font-mono font-bold text-blue-400 bg-gray-900 px-2 py-0.5 rounded">3</span>
+                        </label>
+                        <input type="range" id="surviveMax" min="0" max="8" value="3" class="w-full accent-blue-500 cursor-pointer">
+                        <span class="text-xs text-gray-500 text-right">鄰居高於此值將因資源匱乏死亡</span>
+                    </div>
+                </div>
+                
+                <!-- 繁殖規則 -->
+                <div class="flex-1 space-y-4">
+                    <h3 class="text-green-400 font-bold border-b border-gray-700 pb-2 flex items-center gap-2">
+                        <svg class="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                        繁殖 (Reproduction) 條件
+                        <!-- Reproduction -->
+                    </h3>
+                    <p class="text-xs text-gray-400 mb-2 leading-relaxed">設定死細胞周圍需要多少活鄰居，才能在下一代變為活細胞。</p>
+                    
+                    <div class="flex flex-col gap-2">
+                        <label class="text-gray-300 flex justify-between items-center">
+                            <span><span class="text-blue-300 font-semibold">繁殖所需最少鄰居</span> (下限):</span>
+                            <span id="reproduceMinVal" class="font-mono font-bold text-green-400 bg-gray-900 px-2 py-0.5 rounded">3</span>
+                        </label>
+                        <input type="range" id="reproduceMin" min="0" max="8" value="3" class="w-full accent-green-500 cursor-pointer">
+                    </div>
+                    
+                    <div class="flex flex-col gap-2 mt-4">
+                        <label class="text-gray-300 flex justify-between items-center">
+                            <span><span class="text-blue-300 font-semibold">繁殖容許最多鄰居</span> (上限):</span>
+                            <span id="reproduceMaxVal" class="font-mono font-bold text-green-400 bg-gray-900 px-2 py-0.5 rounded">3</span>
+                        </label>
+                        <input type="range" id="reproduceMax" min="0" max="8" value="3" class="w-full accent-green-500 cursor-pointer">
+                    </div>
+                </div>
+            </div>
+        </details>
+
+        <!-- 分隔線 -->
+        <hr class="w-full border-gray-700 my-8">
+
+        <!-- 理論與數學內涵區塊 (深色模式適配) -->
+        <article class="w-full bg-gray-800/50 p-8 md:p-12 rounded-2xl shadow-xl border border-gray-700 text-left">
+            
+            <header class="mb-12 border-b border-gray-700 pb-6">
+                <h2 class="text-3xl md:text-4xl font-extrabold text-white tracking-tight">
+                    理論與數學內涵
+                </h2>
+                <p class="text-gray-400 mt-4 leading-relaxed text-lg">
+                    康威生命遊戲並非傳統意義上具有「玩家」與「勝負」的遊戲，而是一種<strong>細胞自動機（Cellular Automaton）</strong>。其魅力在於透過極其簡單的規則，推演出極其複雜、甚至具備運算能力的動態系統。
+                </p>
+            </header>
+            
+            <!-- 1. 核心規則 -->
+            <section class="mb-12">
+                <h2 class="text-2xl font-bold text-white mb-6 flex items-center">
+                    <span class="bg-indigo-900 text-indigo-300 w-8 h-8 rounded-full inline-flex justify-center items-center mr-3 text-sm">1</span>
+                    核心規則：生存與毀滅
+                </h2>
+                <p class="mb-4 text-gray-300">系統的演化是離散的（分步進行），每一代（Generation）的狀態完全取決於前一代。在您上方的標準設定中，遵循以下四條簡單規則：</p>
+                
+                <ul class="space-y-4 mt-6 text-gray-300">
+                    <li class="flex items-start bg-gray-800 p-4 rounded-lg border border-gray-700">
+                        <svg class="w-6 h-6 text-red-400 mr-3 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 17h8m0 0V9m0 8l-8-8-4 4-6-6"></path></svg>
+                        <div><strong class="text-white">人口過少（Underpopulation）：</strong>若一個活細胞周圍的活鄰居少於 2 個，該細胞在下一代死亡（模擬孤單）。</div>
+                    </li>
+                    <li class="flex items-start bg-gray-800 p-4 rounded-lg border border-gray-700">
+                        <svg class="w-6 h-6 text-green-400 mr-3 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                        <div><strong class="text-white">穩定存續（Survival）：</strong>若一個活細胞周圍有 2 或 3 個活鄰居，該細胞在下一代繼續存活。</div>
+                    </li>
+                    <li class="flex items-start bg-gray-800 p-4 rounded-lg border border-gray-700">
+                        <svg class="w-6 h-6 text-red-400 mr-3 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path></svg>
+                        <div><strong class="text-white">人口過剩（Overpopulation）：</strong>若一個活細胞周圍有超過 3 個活鄰居，該細胞在下一代死亡（模擬資源匱乏）。</div>
+                    </li>
+                    <li class="flex items-start bg-gray-800 p-4 rounded-lg border border-gray-700">
+                        <svg class="w-6 h-6 text-blue-400 mr-3 shrink-0 mt-0.5" fill="none" stroke="currentColor" viewBox="0 0 24 24"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 6v6m0 0v6m0-6h6m-6 0H6"></path></svg>
+                        <div><strong class="text-white">繁殖（Reproduction）：</strong>若一個死細胞周圍正好有 3 個活鄰居，該細胞在下一代變為活細胞。</div>
+                    </li>
+                </ul>
+                
+                <div class="mt-6 text-sm text-gray-400">
+                    <strong>註：</strong> 這裡的「鄰居」是指 <strong>摩爾鄰域（Moore Neighborhood）</strong>，即一個細胞周圍相鄰的 8 個方格（上、下、左、右及四個對角線）。
+                </div>
+            </section>
+
+            <!-- 2. 數學定義與內涵 -->
+            <section class="mb-12">
+                <h2 class="text-2xl font-bold text-white mb-6 flex items-center">
+                    <span class="bg-indigo-900 text-indigo-300 w-8 h-8 rounded-full inline-flex justify-center items-center mr-3 text-sm">2</span>
+                    數學定義與內涵
+                </h2>
+                <p class="mb-6 text-gray-300">生命遊戲在數學與理論計算機科學領域具有極高的研究價值，主要體現在以下幾個層面：</p>
+
+                <div class="space-y-8">
+                    <div>
+                        <h3 class="text-xl font-semibold text-white mb-3">狀態函數與轉換</h3>
+                        <p class="mb-3 text-gray-300">若令 \(S_{t}(i, j) \in \{0, 1\}\) 表示在時間 \(t\) 時，座標為 \((i, j)\) 的細胞狀態（1 為活，0 為死），則其演化可以表示為一個離散函數：</p>
+                        <div class="bg-gray-900 border border-gray-700 py-4 px-6 rounded-lg text-center overflow-x-auto shadow-inner text-white">
+                            \[ S_{t+1}(i, j) = f(S_t(i, j), N_t(i, j)) \]
+                        </div>
+                        <p class="mt-3 text-gray-300">其中 \(N_t(i, j)\) 是該細胞周圍 8 個鄰居的活細胞總和。</p>
+                    </div>
+
+                    <div>
+                        <h3 class="text-xl font-semibold text-white mb-3">圖靈完備性（Turing Completeness）</h3>
+                        <p class="text-gray-300">這是生命遊戲最震撼的數學內涵。康威與後來的研究者證明，生命遊戲是<strong>圖靈完備</strong>的。這意味著：</p>
+                        <ul class="list-disc list-inside mt-3 space-y-2 text-gray-300 pl-2">
+                            <li>可以在生命遊戲中構造出邏輯閘（AND, OR, NOT）。</li>
+                            <li>可以利用特定的模式（如滑翔機槍 Glider Gun）來傳輸訊號。</li>
+                            <li>理論上，只要初始盤面夠大，生命遊戲可以模擬任何通用計算機。</li>
+                        </ul>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 3. 典型的模式分類 -->
+            <section class="mb-12">
+                <h2 class="text-2xl font-bold text-white mb-6 flex items-center">
+                    <span class="bg-indigo-900 text-indigo-300 w-8 h-8 rounded-full inline-flex justify-center items-center mr-3 text-sm">3</span>
+                    典型的模式分類
+                </h2>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6">
+                    <!-- 靜止狀態 -->
+                    <div class="bg-gray-800 rounded-xl p-6 border border-gray-700 flex flex-col h-full">
+                        <h4 class="font-bold text-lg mb-2 text-white">靜止狀態<br><span class="text-sm text-gray-400 font-normal">Still Lifes</span></h4>
+                        <p class="text-sm text-gray-300 mb-6 flex-grow">圖案在每一代都保持不變。例如：方塊 (Block)。</p>
+                        <div class="flex justify-center">
+                            <div class="grid grid-cols-2 gap-1 bg-gray-900 p-2 rounded border border-gray-700">
+                                <div class="w-6 h-6 bg-green-400 rounded-sm"></div>
+                                <div class="w-6 h-6 bg-green-400 rounded-sm"></div>
+                                <div class="w-6 h-6 bg-green-400 rounded-sm"></div>
+                                <div class="w-6 h-6 bg-green-400 rounded-sm"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 振盪器 -->
+                    <div class="bg-gray-800 rounded-xl p-6 border border-gray-700 flex flex-col h-full">
+                        <h4 class="font-bold text-lg mb-2 text-white">振盪器<br><span class="text-sm text-gray-400 font-normal">Oscillators</span></h4>
+                        <p class="text-sm text-gray-300 mb-6 flex-grow">圖案在有限步數內循環回到初始狀態。例如：訊號燈 (Blinker)。</p>
+                         <div class="flex justify-center items-center h-16">
+                            <div class="grid grid-cols-3 gap-1 bg-gray-900 p-2 rounded border border-gray-700">
+                                <div class="w-5 h-5 bg-green-400 rounded-sm animate-pulse"></div>
+                                <div class="w-5 h-5 bg-green-400 rounded-sm animate-pulse"></div>
+                                <div class="w-5 h-5 bg-green-400 rounded-sm animate-pulse"></div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- 移動圖樣 -->
+                    <div class="bg-gray-800 rounded-xl p-6 border border-gray-700 flex flex-col h-full">
+                        <h4 class="font-bold text-lg mb-2 text-white">移動圖樣<br><span class="text-sm text-gray-400 font-normal">Spaceships</span></h4>
+                        <p class="text-sm text-gray-300 mb-6 flex-grow">圖案在演化的過程中，位置會發生整體偏移。例如：滑翔機 (Glider)。</p>
+                        <div class="flex justify-center h-16">
+                            <div class="grid grid-cols-3 gap-1 p-1 bg-gray-900 rounded border border-gray-700">
+                                <div class="w-4 h-4 rounded-sm"></div>
+                                <div class="w-4 h-4 bg-green-400 rounded-sm"></div>
+                                <div class="w-4 h-4 rounded-sm"></div>
+                                <div class="w-4 h-4 rounded-sm"></div>
+                                <div class="w-4 h-4 rounded-sm"></div>
+                                <div class="w-4 h-4 bg-green-400 rounded-sm"></div>
+                                <div class="w-4 h-4 bg-green-400 rounded-sm"></div>
+                                <div class="w-4 h-4 bg-green-400 rounded-sm"></div>
+                                <div class="w-4 h-4 bg-green-400 rounded-sm"></div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- 4. 計算不可判定性 & 哲學意義 -->
+            <section class="space-y-12">
+                <div>
+                    <h2 class="text-2xl font-bold text-white mb-6 flex items-center">
+                        <span class="bg-indigo-900 text-indigo-300 w-8 h-8 rounded-full inline-flex justify-center items-center mr-3 text-sm">4</span>
+                        計算不可判定性 (Undecidability)
+                    </h2>
+                    <blockquote class="border-l-4 border-indigo-500 bg-indigo-900/30 p-4 rounded-r-lg text-gray-300 italic mb-4">
+                        "不存在一個通用的演算法，能夠在給定任意初始配置的情況下，預知該系統最終是否會進入穩定狀態、週期循環，還是會無限擴張。"
+                    </blockquote>
+                    <p class="text-gray-300">要得知結果，唯一的辦法就是讓它「跑跑看」。這深刻地反映了數學中的決定論系統，同樣可以產生完全不可預知的長期結果。</p>
+                </div>
+
+                <div>
+                    <h2 class="text-2xl font-bold text-white mb-6 flex items-center">
+                        <span class="bg-indigo-900 text-indigo-300 w-8 h-8 rounded-full inline-flex justify-center items-center mr-3 text-sm">5</span>
+                        哲學意義：自組織系統
+                    </h2>
+                    <p class="mb-4 text-gray-300">生命遊戲清晰地展示了生命（或複雜的秩序）是如何從無序且極其簡單的底層規則中「自組織」形成的。</p>
+                    <p class="text-gray-300">這也引發了關於「數位物理學」的深遠討論：如果簡單的 4 條規則就能產生如此複雜的宇宙，甚至在其中誕生能進行運算的實體，那麼我們現實世界的物理定律，是否本質上也只是某種更高級的細胞自動機規則呢？</p>
+                </div>
+            </section>
+        </article>
+
+    </div>
+
+    <script src="script.js"></script>
+</body>
+</html>
