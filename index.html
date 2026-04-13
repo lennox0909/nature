@@ -101,9 +101,12 @@
             fill: transparent;
             stroke: var(--tron-cyan);
             stroke-width: 3px;
-            stroke-dasharray: 40 20; /* 虛線營造繪圖時的光流感 */
+            stroke-dasharray: 40 20;
             animation: dashFlow 1s linear infinite;
-            transition: fill 1.5s ease, filter 1.5s ease, stroke-width 1.5s ease;
+            
+            /* 加入 transform 與 opacity 的轉場效果，為最後的飛入動畫做準備 */
+            transition: fill 1.5s ease, filter 1.5s ease, stroke-width 1.5s ease, transform 0.8s cubic-bezier(0.5, 0, 0.2, 1), opacity 0.8s ease-in;
+            transform-origin: 600px 450px; /* 確保縮放中心點在文字中心 */
             filter: url(#cyanGlow);
         }
 
@@ -154,7 +157,7 @@
         }
 
         .nav-item {
-            color: #5bb3b3; /* 圖片中帶有灰階感的暗青色 */
+            color: #5bb3b3;
             font-family: 'Orbitron', sans-serif;
             font-size: 16px;
             font-weight: 700;
@@ -167,7 +170,6 @@
             align-items: center;
         }
 
-        /* 加上 ">" 符號作為互動裝飾 */
         .nav-item::before {
             content: '>';
             margin-right: 8px;
@@ -177,10 +179,9 @@
             transform: translateX(-10px);
         }
 
-        /* Hover 時亮起成高亮度霓虹，並滑入 ">" 符號 */
-        .nav-item:hover {
+        .nav-item:hover, .nav-item.flash-active {
             color: var(--tron-cyan);
-            text-shadow: 0 0 8px var(--tron-cyan), 0 0 15px var(--tron-cyan);
+            text-shadow: 0 0 8px var(--tron-cyan), 0 0 15px var(--tron-cyan), 0 0 30px var(--tron-cyan);
         }
 
         .nav-item:hover::before {
@@ -208,13 +209,14 @@
         <a href="#" class="nav-item">Home</a>
         <a href="#" class="nav-item">Works</a>
         <a href="#" class="nav-item">About</a>
-        <a href="#" class="nav-item">Contact</a>
+        <!-- 為 Contact 加入特定的 ID 以便追蹤座標 -->
+        <a href="#" class="nav-item" id="contact-link">Contact</a>
     </nav>
 
     <!-- 主要 SVG 畫布 -->
     <svg id="main-svg" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid meet">
         <defs>
-            <!-- 青藍色霓虹發光濾鏡 (Tron Cyan) -->
+            <!-- 青藍色霓虹發光濾鏡 -->
             <filter id="cyanGlow" x="-50%" y="-50%" width="200%" height="200%">
                 <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur1" />
                 <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blur2" />
@@ -227,7 +229,7 @@
                 </feMerge>
             </filter>
 
-            <!-- 橘色霓虹發光濾鏡 (Tron Orange) -->
+            <!-- 橘色霓虹發光濾鏡 -->
             <filter id="orangeGlow" x="-50%" y="-50%" width="200%" height="200%">
                 <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur1" />
                 <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blur2" />
@@ -246,7 +248,7 @@
             </clipPath>
         </defs>
 
-        <!-- 目標文字 (預設被剪裁遮罩隱藏) -->
+        <!-- 目標文字 -->
         <text id="target-text" x="600" y="450" text-anchor="middle">LENO TSAI</text>
 
         <!-- 雷射光束 -->
@@ -258,40 +260,37 @@
 
     <script>
         window.addEventListener('load', () => {
-            // 確保字體已加載，否則邊界框計算會出錯
             document.fonts.ready.then(() => {
                 const statusMsg = document.getElementById('status-msg');
                 setTimeout(() => {
                     statusMsg.innerText = "DRAWING PROTOCOL ENGAGED";
                     startLaserAnimation();
-                }, 1500); // 延遲 1.5 秒讓使用者先欣賞背景
+                }, 1500);
             });
         });
 
         function startLaserAnimation() {
+            const svg = document.getElementById('main-svg');
             const text = document.getElementById('target-text');
             const clipRect = document.getElementById('clip-rect');
             const beam = document.getElementById('laser-beam');
             const spark = document.getElementById('spark');
             const statusMsg = document.getElementById('status-msg');
+            const contactLink = document.getElementById('contact-link');
 
-            // 1. 取得文字的實際範圍 (Bounding Box)
             const bbox = text.getBBox();
             
-            // 2. 套用遮罩，並初始化遮罩位置
             text.setAttribute('clip-path', 'url(#text-clip)');
             clipRect.setAttribute('x', 0);
             clipRect.setAttribute('y', bbox.y - 100);
             
-            // 定義動畫起點與終點的 X 座標 (稍微向外延伸)
             const startX = bbox.x - 30;
             const endX = bbox.x + bbox.width + 40;
             const textCenterY = bbox.y + bbox.height / 2;
 
             let startTime = null;
-            const duration = 4000; // 繪製總時間 (毫秒)
+            const duration = 4000; 
 
-            // 延遲一點點後開啟雷射光
             setTimeout(() => {
                 beam.style.opacity = 1;
                 spark.style.opacity = 1;
@@ -303,43 +302,75 @@
                 let elapsed = time - startTime;
                 let progress = Math.min(elapsed / duration, 1);
 
-                // 計算目前掃描到的 X 座標
                 let currentX = startX + (endX - startX) * progress;
-
-                // 更新剪裁遮罩的寬度，逐漸揭露文字
                 clipRect.setAttribute('width', currentX + 10);
 
-                // 核心邏輯：計算雷射光束打在文字上的 Y 座標。
-                // 這裡利用正弦函數組合，模擬雷射槍正在「快速上下塗鴉、手繪」的視覺效果。
-                let mainFreq = 30; // 主要上下筆劃頻率
-                let jitterFreq = 75; // 細微顫抖頻率
+                let mainFreq = 30;
+                let jitterFreq = 75;
                 let scribbleY = textCenterY 
                               + Math.sin(progress * Math.PI * mainFreq) * (bbox.height * 0.4)
                               + Math.cos(progress * Math.PI * jitterFreq) * (bbox.height * 0.15);
 
-                // 更新雷射光束座標 (改為從畫面上方垂直射下)
                 beam.setAttribute('x1', currentX);
                 beam.setAttribute('y1', 0);
                 beam.setAttribute('x2', currentX);
                 beam.setAttribute('y2', scribbleY);
 
-                // 更新火花位置與大小閃爍
                 spark.setAttribute('cx', currentX);
                 spark.setAttribute('cy', scribbleY);
-                spark.setAttribute('r', 4 + Math.random() * 5); // 隨機半徑製造閃爍感
+                spark.setAttribute('r', 4 + Math.random() * 5);
 
                 if (progress < 1) {
-                    requestAnimationFrame(drawFrame); // 繼續下一幀
+                    requestAnimationFrame(drawFrame);
                 } else {
-                    // 動畫結束處理
                     beam.style.opacity = 0;
                     spark.style.opacity = 0;
-                    
                     statusMsg.innerText = "IDENTITY COMPILED";
 
-                    // 文字繪製完成，閃爍並填滿白色，散發強烈霓虹光
+                    // 1. 文字發光
                     setTimeout(() => {
                         text.classList.add('filled');
+                        
+                        // 2. 停頓 2 秒後啟動「傳送至 CONTACT」的特效
+                        setTimeout(() => {
+                            statusMsg.innerText = "DATA TRANSFERRING...";
+                            
+                            // 移除剪裁遮罩，避免文字飛出去時被切掉
+                            text.removeAttribute('clip-path');
+
+                            // 取得 Contact 按鈕的螢幕座標中心點
+                            const rect = contactLink.getBoundingClientRect();
+                            const targetX = rect.left + rect.width / 2;
+                            const targetY = rect.top + rect.height / 2;
+
+                            // 建立 SVG 點，將螢幕座標轉換為 SVG viewBox 內部的精準座標
+                            const pt = svg.createSVGPoint();
+                            pt.x = targetX;
+                            pt.y = targetY;
+                            const svgPt = pt.matrixTransform(svg.getScreenCTM().inverse());
+
+                            // 計算位移量 (原本文字中心在 x=600, y=450)
+                            const dx = svgPt.x - 600;
+                            const dy = svgPt.y - 450;
+
+                            // 執行 CSS 動畫：縮小、位移、淡出
+                            text.style.transform = `translate(${dx}px, ${dy}px) scale(0.02)`;
+                            text.style.opacity = '0';
+
+                            // 當文字快抵達時，讓 Contact 選單產生「吸收資料」的閃爍特效
+                            setTimeout(() => {
+                                contactLink.classList.add('flash-active');
+                                statusMsg.innerText = "TRANSFER COMPLETE";
+                                
+                                setTimeout(() => {
+                                    contactLink.classList.remove('flash-active');
+                                    statusMsg.innerText = "SYSTEM STANDBY";
+                                }, 600); // 閃爍持續時間
+
+                            }, 700); // 配合 CSS transform 設定的 0.8s 動畫時間
+
+                        }, 2000); // 停留兩秒
+
                     }, 300);
                 }
             }
