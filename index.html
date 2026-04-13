@@ -1,0 +1,295 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Leno Tsai - Tron Legacy Style</title>
+    <!-- 引入科幻字體 -->
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        :root {
+            --tron-cyan: #0ff;
+            --tron-orange: #ff8c00;
+            --bg-color: #020205;
+        }
+
+        body, html {
+            margin: 0;
+            padding: 0;
+            width: 100%;
+            height: 100%;
+            background-color: var(--bg-color);
+            overflow: hidden;
+            font-family: 'Orbitron', sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+        }
+
+        /* 3D 透視網格背景 (Tron 風格) */
+        .grid-container {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            perspective: 800px;
+            z-index: 0;
+            overflow: hidden;
+        }
+
+        .grid {
+            position: absolute;
+            width: 200vw;
+            height: 200vh;
+            bottom: -60vh;
+            left: -50vw;
+            background-image: 
+                linear-gradient(rgba(0, 255, 255, 0.2) 2px, transparent 2px),
+                linear-gradient(90deg, rgba(0, 255, 255, 0.2) 2px, transparent 2px);
+            background-size: 80px 80px;
+            transform: rotateX(75deg);
+            animation: gridMove 3s linear infinite;
+            border-top: 3px solid rgba(0, 255, 255, 0.8);
+            box-shadow: 0 0 30px rgba(0, 255, 255, 0.6) inset, 0 -20px 50px rgba(0, 255, 255, 0.3);
+        }
+
+        @keyframes gridMove {
+            0% { transform: rotateX(75deg) translateY(0); }
+            100% { transform: rotateX(75deg) translateY(80px); }
+        }
+
+        /* 掃描線與暗角效果 */
+        .scanlines {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: linear-gradient(to bottom, transparent 50%, rgba(0, 0, 0, 0.3) 51%);
+            background-size: 100% 4px;
+            pointer-events: none;
+            z-index: 10;
+        }
+
+        .vignette {
+            position: absolute;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: radial-gradient(circle, transparent 40%, rgba(0, 0, 0, 0.9) 120%);
+            pointer-events: none;
+            z-index: 11;
+        }
+
+        /* SVG 畫布設定 */
+        #main-svg {
+            position: relative;
+            z-index: 5;
+            width: 100%;
+            height: 100vh;
+            display: block;
+        }
+
+        /* 目標文字樣式 */
+        #target-text {
+            font-family: 'Orbitron', sans-serif;
+            font-weight: 900;
+            font-size: 130px;
+            letter-spacing: 15px;
+            fill: transparent;
+            stroke: var(--tron-cyan);
+            stroke-width: 3px;
+            stroke-dasharray: 40 20; /* 虛線營造繪圖時的光流感 */
+            animation: dashFlow 1s linear infinite;
+            transition: fill 1.5s ease, filter 1.5s ease, stroke-width 1.5s ease;
+            filter: url(#cyanGlow);
+        }
+
+        @keyframes dashFlow {
+            to { stroke-dashoffset: -60; }
+        }
+
+        /* 繪製完成後的文字發光狀態 */
+        #target-text.filled {
+            fill: #fff;
+            stroke-width: 0;
+            stroke-dasharray: none;
+            animation: none;
+            filter: drop-shadow(0 0 10px #fff) drop-shadow(0 0 20px var(--tron-cyan)) drop-shadow(0 0 50px var(--tron-cyan)) drop-shadow(0 0 80px var(--tron-cyan));
+        }
+
+        /* 介面提示文字 */
+        .status-text {
+            position: absolute;
+            top: 30px;
+            left: 40px;
+            color: var(--tron-cyan);
+            font-size: 14px;
+            letter-spacing: 3px;
+            text-transform: uppercase;
+            z-index: 6;
+            opacity: 0.8;
+            text-shadow: 0 0 5px var(--tron-cyan);
+        }
+        
+        .status-text span {
+            animation: blink 1s infinite alternate;
+        }
+
+        @keyframes blink {
+            from { opacity: 0.3; }
+            to { opacity: 1; }
+        }
+
+    </style>
+</head>
+<body>
+
+    <!-- 背景特效 -->
+    <div class="grid-container">
+        <div class="grid"></div>
+    </div>
+    <div class="scanlines"></div>
+    <div class="vignette"></div>
+
+    <!-- 系統狀態提示 -->
+    <div class="status-text">SYSTEM > <span id="status-msg">INITIALIZING...</span></div>
+
+    <!-- 主要 SVG 畫布 -->
+    <svg id="main-svg" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid meet">
+        <defs>
+            <!-- 青藍色霓虹發光濾鏡 (Tron Cyan) -->
+            <filter id="cyanGlow" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur1" />
+                <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blur2" />
+                <feGaussianBlur in="SourceGraphic" stdDeviation="15" result="blur3" />
+                <feMerge>
+                    <feMergeNode in="blur3" />
+                    <feMergeNode in="blur2" />
+                    <feMergeNode in="blur1" />
+                    <feMergeNode in="SourceGraphic" />
+                </feMerge>
+            </filter>
+
+            <!-- 橘色霓虹發光濾鏡 (Tron Orange) -->
+            <filter id="orangeGlow" x="-50%" y="-50%" width="200%" height="200%">
+                <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur1" />
+                <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blur2" />
+                <feGaussianBlur in="SourceGraphic" stdDeviation="15" result="blur3" />
+                <feMerge>
+                    <feMergeNode in="blur3" />
+                    <feMergeNode in="blur2" />
+                    <feMergeNode in="blur1" />
+                    <feMergeNode in="SourceGraphic" />
+                </feMerge>
+            </filter>
+
+            <!-- 用於文字揭露的剪裁遮罩 -->
+            <clipPath id="text-clip">
+                <rect id="clip-rect" x="0" y="0" width="0" height="1200" />
+            </clipPath>
+        </defs>
+
+        <!-- 目標文字 (預設被剪裁遮罩隱藏) -->
+        <text id="target-text" x="600" y="450" text-anchor="middle">LENO TSAI</text>
+
+        <!-- 雷射光束 -->
+        <line id="laser-beam" x1="0" y1="0" x2="0" y2="0" stroke="#fff" stroke-width="4" filter="url(#orangeGlow)" style="opacity: 0;" />
+        
+        <!-- 繪圖時的火花/光點 -->
+        <circle id="spark" cx="0" cy="0" r="0" fill="#fff" filter="url(#orangeGlow)" style="opacity: 0;" />
+    </svg>
+
+    <script>
+        window.addEventListener('load', () => {
+            // 確保字體已加載，否則邊界框計算會出錯
+            document.fonts.ready.then(() => {
+                const statusMsg = document.getElementById('status-msg');
+                setTimeout(() => {
+                    statusMsg.innerText = "DRAWING PROTOCOL ENGAGED";
+                    startLaserAnimation();
+                }, 1500); // 延遲 1.5 秒讓使用者先欣賞背景
+            });
+        });
+
+        function startLaserAnimation() {
+            const text = document.getElementById('target-text');
+            const clipRect = document.getElementById('clip-rect');
+            const beam = document.getElementById('laser-beam');
+            const spark = document.getElementById('spark');
+            const statusMsg = document.getElementById('status-msg');
+
+            // 1. 取得文字的實際範圍 (Bounding Box)
+            const bbox = text.getBBox();
+            
+            // 2. 套用遮罩，並初始化遮罩位置
+            text.setAttribute('clip-path', 'url(#text-clip)');
+            clipRect.setAttribute('x', 0);
+            clipRect.setAttribute('y', bbox.y - 100);
+            
+            // 定義動畫起點與終點的 X 座標 (稍微向外延伸)
+            const startX = bbox.x - 30;
+            const endX = bbox.x + bbox.width + 40;
+            const textCenterY = bbox.y + bbox.height / 2;
+
+            let startTime = null;
+            const duration = 4000; // 繪製總時間 (毫秒)
+
+            // 延遲一點點後開啟雷射光
+            setTimeout(() => {
+                beam.style.opacity = 1;
+                spark.style.opacity = 1;
+                requestAnimationFrame(drawFrame);
+            }, 500);
+
+            function drawFrame(time) {
+                if (!startTime) startTime = time;
+                let elapsed = time - startTime;
+                let progress = Math.min(elapsed / duration, 1);
+
+                // 計算目前掃描到的 X 座標
+                let currentX = startX + (endX - startX) * progress;
+
+                // 更新剪裁遮罩的寬度，逐漸揭露文字
+                clipRect.setAttribute('width', currentX + 10);
+
+                // 核心邏輯：計算雷射光束打在文字上的 Y 座標。
+                // 這裡利用正弦函數組合，模擬雷射槍正在「快速上下塗鴉、手繪」的視覺效果。
+                let mainFreq = 30; // 主要上下筆劃頻率
+                let jitterFreq = 75; // 細微顫抖頻率
+                let scribbleY = textCenterY 
+                              + Math.sin(progress * Math.PI * mainFreq) * (bbox.height * 0.4)
+                              + Math.cos(progress * Math.PI * jitterFreq) * (bbox.height * 0.15);
+
+                // 更新雷射光束座標 (改為從畫面上方垂直射下)
+                beam.setAttribute('x1', currentX);
+                beam.setAttribute('y1', 0);
+                beam.setAttribute('x2', currentX);
+                beam.setAttribute('y2', scribbleY);
+
+                // 更新火花位置與大小閃爍
+                spark.setAttribute('cx', currentX);
+                spark.setAttribute('cy', scribbleY);
+                spark.setAttribute('r', 4 + Math.random() * 5); // 隨機半徑製造閃爍感
+
+                if (progress < 1) {
+                    requestAnimationFrame(drawFrame); // 繼續下一幀
+                } else {
+                    // 動畫結束處理
+                    beam.style.opacity = 0;
+                    spark.style.opacity = 0;
+                    
+                    statusMsg.innerText = "IDENTITY COMPILED";
+
+                    // 文字繪製完成，閃爍並填滿白色，散發強烈霓虹光
+                    setTimeout(() => {
+                        text.classList.add('filled');
+                    }, 300);
+                }
+            }
+        }
+    </script>
+</body>
+</html>
