@@ -1,2 +1,2 @@
-# nature
-dig into nature with computer science
+# **nature** : the project
+- discuss natural phenomena with computer science
