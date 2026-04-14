@@ -3,8 +3,8 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Leno Tsai - Tron Legacy Style</title>
-    <!-- 引入科幻字體 -->
+    <title>NATURE - Research with Computer Science</title>
+    <!-- Sci-Fi Font -->
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
     <style>
         :root {
@@ -26,7 +26,7 @@
             align-items: center;
         }
 
-        /* 3D 透視網格背景 (Tron 風格) */
+        /* 3D Grid Background */
         .grid-container {
             position: absolute;
             top: 0;
@@ -59,7 +59,7 @@
             100% { transform: rotateX(75deg) translateY(80px); }
         }
 
-        /* 掃描線與暗角效果 */
+        /* Swipe scan with dark corner effect */
         .scanlines {
             position: absolute;
             top: 0;
@@ -83,7 +83,7 @@
             z-index: 11;
         }
 
-        /* SVG 畫布設定 */
+        /* SVG Canvas */
         #main-svg {
             position: relative;
             z-index: 5;
@@ -92,7 +92,7 @@
             display: block;
         }
 
-        /* 目標文字樣式 */
+        /* Target font styles */
         #target-text {
             font-family: 'Orbitron', sans-serif;
             font-weight: 900;
@@ -104,9 +104,9 @@
             stroke-dasharray: 40 20;
             animation: dashFlow 1s linear infinite;
             
-            /* 加入 transform 與 opacity 的轉場效果，為最後的飛入動畫做準備 */
+            /* Add transform and opacity filter effects, prepare for text reveal*/
             transition: fill 1.5s ease, filter 1.5s ease, stroke-width 1.5s ease, transform 0.8s cubic-bezier(0.5, 0, 0.2, 1), opacity 0.8s ease-in;
-            transform-origin: 600px 450px; /* 確保縮放中心點在文字中心 */
+            transform-origin: 600px 450px; /* Ensure canvas center aligned with Title center */
             filter: url(#cyanGlow);
         }
 
@@ -114,7 +114,7 @@
             to { stroke-dashoffset: -60; }
         }
 
-        /* 繪製完成後的文字發光狀態 */
+        /* Final touch - text glowing effects */
         #target-text.filled {
             fill: #fff;
             stroke-width: 0;
@@ -123,7 +123,7 @@
             filter: drop-shadow(0 0 10px #fff) drop-shadow(0 0 20px var(--tron-cyan)) drop-shadow(0 0 50px var(--tron-cyan)) drop-shadow(0 0 80px var(--tron-cyan));
         }
 
-        /* 介面提示文字 */
+        /* System Terminal style background texts */
         .status-text {
             position: absolute;
             top: 30px;
@@ -146,7 +146,7 @@
             to { opacity: 1; }
         }
 
-        /* 導覽選單樣式 (System Terminal 風格) */
+        /* nav-menu (System Terminal style) */
         .nav-menu {
             position: absolute;
             top: 30px;
@@ -194,29 +194,29 @@
 </head>
 <body>
 
-    <!-- 背景特效 -->
+    <!-- background effects -->
     <div class="grid-container">
         <div class="grid"></div>
     </div>
     <div class="scanlines"></div>
     <div class="vignette"></div>
 
-    <!-- 系統狀態提示 -->
+    <!-- System status prompts -->
     <div class="status-text">SYSTEM > <span id="status-msg">INITIALIZING...</span></div>
 
-    <!-- 終端機風格導覽選單 -->
+    <!-- System Terminal style menu with hyperlinks -->
     <nav class="nav-menu">
         <a href="#" class="nav-item">Home</a>
         <a href="#" class="nav-item">Works</a>
         <a href="#" class="nav-item">About</a>
-        <!-- 為 Contact 加入特定的 ID 以便追蹤座標 -->
+        <!-- ID contact for tracking -->
         <a href="#" class="nav-item" id="contact-link">Contact</a>
     </nav>
 
-    <!-- 主要 SVG 畫布 -->
+    <!-- Main SVG canvas -->
     <svg id="main-svg" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid meet">
         <defs>
-            <!-- 青藍色霓虹發光濾鏡 -->
+            <!-- cyanGlow neon filter -->
             <filter id="cyanGlow" x="-50%" y="-50%" width="200%" height="200%">
                 <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur1" />
                 <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blur2" />
@@ -229,7 +229,7 @@
                 </feMerge>
             </filter>
 
-            <!-- 橘色霓虹發光濾鏡 -->
+            <!-- Orange Glow neon filter -->
             <filter id="orangeGlow" x="-50%" y="-50%" width="200%" height="200%">
                 <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur1" />
                 <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blur2" />
@@ -242,19 +242,19 @@
                 </feMerge>
             </filter>
 
-            <!-- 用於文字揭露的剪裁遮罩 -->
+            <!-- Mask for the texts restage -->
             <clipPath id="text-clip">
                 <rect id="clip-rect" x="0" y="0" width="0" height="1200" />
             </clipPath>
         </defs>
 
-        <!-- 目標文字 -->
+        <!-- Target texts -->
         <text id="target-text" x="600" y="450" text-anchor="middle">LENO TSAI</text>
 
-        <!-- 雷射光束 -->
+        <!-- Laser bean -->
         <line id="laser-beam" x1="0" y1="0" x2="0" y2="0" stroke="#fff" stroke-width="4" filter="url(#orangeGlow)" style="opacity: 0;" />
         
-        <!-- 繪圖時的火花/光點 -->
+        <!-- spark effects -->
         <circle id="spark" cx="0" cy="0" r="0" fill="#fff" filter="url(#orangeGlow)" style="opacity: 0;" />
     </svg>
 
@@ -327,37 +327,38 @@
                     spark.style.opacity = 0;
                     statusMsg.innerText = "IDENTITY COMPILED";
 
-                    // 1. 文字發光
+                    // 1. Glowing texts
                     setTimeout(() => {
                         text.classList.add('filled');
                         
-                        // 2. 停頓 2 秒後啟動「傳送至 CONTACT」的特效
+                        // 2. 2-sec pause before contact link animation
                         setTimeout(() => {
                             statusMsg.innerText = "DATA TRANSFERRING...";
                             
-                            // 移除剪裁遮罩，避免文字飛出去時被切掉
+                            // Remove text clip path for animation
                             text.removeAttribute('clip-path');
 
-                            // 取得 Contact 按鈕的螢幕座標中心點
+                            // Get the center coordinates of Contact
                             const rect = contactLink.getBoundingClientRect();
                             const targetX = rect.left + rect.width / 2;
                             const targetY = rect.top + rect.height / 2;
 
-                            // 建立 SVG 點，將螢幕座標轉換為 SVG viewBox 內部的精準座標
+                            // create SVG point, and matrix Transform SVG viewBox
                             const pt = svg.createSVGPoint();
                             pt.x = targetX;
                             pt.y = targetY;
                             const svgPt = pt.matrixTransform(svg.getScreenCTM().inverse());
 
-                            // 計算位移量 (原本文字中心在 x=600, y=450)
+                            // Calc vecters for animation (Original coordinate: x=600, y=450)
                             const dx = svgPt.x - 600;
                             const dy = svgPt.y - 450;
 
-                            // 執行 CSS 動畫：縮小、位移、淡出
+                            // CSS animation: resize, move, fadeout
                             text.style.transform = `translate(${dx}px, ${dy}px) scale(0.02)`;
                             text.style.opacity = '0';
 
-                            // 當文字快抵達時，讓 Contact 選單產生「吸收資料」的閃爍特效
+                            // Contact glow effects when previous animation ends
+                            // Contact "absorbed" the animation
                             setTimeout(() => {
                                 contactLink.classList.add('flash-active');
                                 statusMsg.innerText = "TRANSFER COMPLETE";
@@ -365,11 +366,12 @@
                                 setTimeout(() => {
                                     contactLink.classList.remove('flash-active');
                                     statusMsg.innerText = "SYSTEM STANDBY";
-                                }, 600); // 閃爍持續時間
+                                }, 600); // Glowing effects duration
 
-                            }, 700); // 配合 CSS transform 設定的 0.8s 動畫時間
+                            }, 700); // Reply CSS transform animation duration time setting: 0.8s
 
-                        }, 2000); // 停留兩秒
+                        }, 2000); // 2-sec pause
+
 
                     }, 300);
                 }
