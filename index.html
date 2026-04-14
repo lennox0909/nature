@@ -7,236 +7,7 @@
     <title>NATURE - Research with Computer Science</title>
     <!-- Sci-Fi Font -->
     <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
-    <style>
-        :root {
-            --tron-cyan: #0ff;
-            --tron-orange: #ff8c00;
-            --bg-color: #020205;
-        }
-
-        body, html {
-            margin: 0;
-            padding: 0;
-            width: 100%;
-            height: 100%;
-            background-color: var(--bg-color);
-            overflow: hidden;
-            font-family: 'Orbitron', sans-serif;
-            display: flex;
-            justify-content: center;
-            align-items: center;
-            /* Prevent text selection and default touch actions */
-            -webkit-user-select: none;
-            user-select: none;
-            -webkit-tap-highlight-color: transparent;
-            touch-action: none;
-        }
-
-        /* 3D Grid Background */
-        .grid-container {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            perspective: 1000px;
-            z-index: 0;
-            overflow: hidden;
-        }
-
-        .grid {
-            position: absolute;
-            width: 300vw;
-            height: 200vh;
-            bottom: -50vh;
-            left: -100vw;
-            background-image: 
-                linear-gradient(rgba(0, 255, 255, 0.15) 2px, transparent 2px),
-                linear-gradient(90deg, rgba(0, 255, 255, 0.15) 2px, transparent 2px);
-            background-size: 60px 60px;
-            transform: rotateX(70deg);
-            animation: gridMove 2.5s linear infinite;
-            border-top: 2px solid rgba(0, 255, 255, 0.5);
-            box-shadow: 0 0 40px rgba(0, 255, 255, 0.4) inset;
-        }
-
-        @keyframes gridMove {
-            0% { transform: rotateX(70deg) translateY(0); }
-            100% { transform: rotateX(70deg) translateY(60px); }
-        }
-
-        /* CRT Scanlines & Vignette */
-        .scanlines {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: linear-gradient(to bottom, transparent 50%, rgba(0, 0, 0, 0.2) 51%);
-            background-size: 100% 4px;
-            pointer-events: none;
-            z-index: 10;
-        }
-
-        .vignette {
-            position: absolute;
-            top: 0;
-            left: 0;
-            width: 100%;
-            height: 100%;
-            background: radial-gradient(circle, transparent 30%, rgba(0, 0, 0, 0.8) 150%);
-            pointer-events: none;
-            z-index: 11;
-        }
-
-        /* SVG Canvas */
-        #main-svg {
-            position: relative;
-            z-index: 5;
-            width: 100%;
-            height: 100%;
-            display: block;
-        }
-
-        /* Target text responsive styling */
-        #target-text {
-            font-family: 'Orbitron', sans-serif;
-            font-weight: 900;
-            font-size: 130px;
-            letter-spacing: 15px;
-            fill: transparent;
-            stroke: var(--tron-cyan);
-            stroke-width: 3px;
-            stroke-dasharray: 40 20;
-            animation: dashFlow 1s linear infinite;
-            
-            transition: fill 1.2s ease, filter 1.2s ease, stroke-width 1.2s ease, transform 0.8s cubic-bezier(0.2, 0, 0.2, 1), opacity 0.6s ease-in;
-            transform-origin: 600px 400px; 
-            filter: url(#cyanGlow);
-        }
-
-        @keyframes dashFlow {
-            to { stroke-dashoffset: -60; }
-        }
-
-        #target-text.filled {
-            fill: #fff;
-            stroke-width: 0;
-            stroke-dasharray: none;
-            animation: none;
-            filter: drop-shadow(0 0 10px #fff) drop-shadow(0 0 25px var(--tron-cyan)) drop-shadow(0 0 60px var(--tron-cyan));
-        }
-
-        /* Status UI */
-        .status-text {
-            position: absolute;
-            top: 40px;
-            left: 0;
-            right: 0;
-            text-align: center;
-            color: var(--tron-cyan);
-            font-size: 12px;
-            letter-spacing: 4px;
-            text-transform: uppercase;
-            z-index: 6;
-            opacity: 0.9;
-            text-shadow: 0 0 8px var(--tron-cyan);
-            pointer-events: none;
-        }
-        
-        .status-text span {
-            animation: blink 0.8s infinite alternate;
-        }
-
-        @keyframes blink {
-            from { opacity: 0.2; }
-            to { opacity: 1; }
-        }
-
-        /* Nav Menu - Mobile optimized for iPhone 12 Pro bottom reach */
-        .nav-menu {
-            position: absolute;
-            bottom: 50px;
-            left: 0;
-            right: 0;
-            z-index: 20;
-            display: flex;
-            justify-content: center;
-            gap: 10px;
-            padding: 0 20px;
-        }
-
-        .nav-item {
-            color: rgba(91, 179, 179, 0.8);
-            font-family: 'Orbitron', sans-serif;
-            font-size: 14px;
-            font-weight: 700;
-            text-decoration: none;
-            letter-spacing: 2px;
-            text-transform: uppercase;
-            padding: 12px 10px;
-            transition: all 0.3s ease;
-            display: flex;
-            align-items: center;
-        }
-
-        .nav-item::before {
-            content: '>';
-            margin-right: 5px;
-            opacity: 0;
-            color: var(--tron-cyan);
-            transform: translateX(-5px);
-            transition: all 0.3s ease;
-        }
-
-        /* Hover & Touch feedback */
-        .nav-item:hover, .nav-item:active, .nav-item.flash-active {
-            color: var(--tron-cyan);
-            text-shadow: 0 0 10px var(--tron-cyan), 0 0 20px var(--tron-cyan);
-            transform: scale(1.05);
-        }
-
-        .nav-item:active {
-            transform: scale(0.92);
-        }
-
-        .nav-item:hover::before, .nav-item:active::before {
-            opacity: 1;
-            transform: translateX(0);
-        }
-
-        /* ==============================================================
-           Mobile Specific Tuning
-           ============================================================== */
-        @media screen and (max-width: 450px) {
-            #target-text {
-                font-size: 160px; /* Scaled up for narrow ViewBox */
-                letter-spacing: 8px; /* Tighter for mobile width */
-            }
-            .nav-menu {
-                bottom: 60px; /* Slightly higher for iOS home indicator bar */
-                gap: 5px;
-            }
-            .nav-item {
-                font-size: 11px;
-                letter-spacing: 1px;
-                padding: 10px 6px;
-            }
-            .status-text {
-                top: 60px; /* Lower to avoid notch */
-            }
-        }
-
-        /* Landscape orientation safety */
-        @media screen and (max-height: 500px) {
-            .nav-menu {
-                bottom: 20px;
-            }
-            #target-text {
-                font-size: 100px;
-            }
-        }
-    </style>
+    <link rel="stylesheet" href="./components/style.css">
 </head>
 <body>
 
@@ -248,20 +19,36 @@
     <div class="vignette"></div>
 
     <!-- System status prompts -->
-    <div class="status-text">USER:NATURE > <span id="status-msg">INITIALIZING...</span></div>
+    <div class="status-text">NATURE OS > <span id="status-msg">INITIALIZING...</span></div>
 
-    <!-- System Terminal style menu -->
+    <!-- System Terminal style menu with Dropdown -->
     <nav class="nav-menu">
-        <a href="#" class="nav-item">Home</a>
-        <a href="#" class="nav-item">Works</a>
-        <a href="#" class="nav-item">About</a>
-        <a href="#" class="nav-item" id="contact-link">Contact</a>
+        <div class="nav-item-wrapper">
+            <a href="#" class="nav-item">Home</a>
+        </div>
+        
+        <!-- Works with Dropdown -->
+        <div class="nav-item-wrapper">
+            <div class="nav-item">Works</div>
+            <div class="dropdown-content">
+                <!-- Added target="_blank" to open in a new window/tab -->
+                <a href="./game_of_life/" class="dropdown-item" target="_blank" rel="noopener noreferrer">> GAME OF LIFE</a>
+                <!-- Future items can be added here -->
+            </div>
+        </div>
+
+        <div class="nav-item-wrapper">
+            <a href="#" class="nav-item">About</a>
+        </div>
+        
+        <div class="nav-item-wrapper">
+            <a href="#" class="nav-item" id="contact-link">Contact</a>
+        </div>
     </nav>
 
     <!-- Main SVG canvas -->
     <svg id="main-svg" viewBox="0 0 1200 800" preserveAspectRatio="xMidYMid meet">
         <defs>
-            <!-- cyanGlow neon filter -->
             <filter id="cyanGlow" x="-50%" y="-50%" width="200%" height="200%">
                 <feGaussianBlur in="SourceGraphic" stdDeviation="3" result="blur1" />
                 <feGaussianBlur in="SourceGraphic" stdDeviation="8" result="blur2" />
@@ -274,7 +61,6 @@
                 </feMerge>
             </filter>
 
-            <!-- Orange Glow neon filter -->
             <filter id="orangeGlow" x="-50%" y="-50%" width="200%" height="200%">
                 <feGaussianBlur in="SourceGraphic" stdDeviation="2" result="blur1" />
                 <feGaussianBlur in="SourceGraphic" stdDeviation="5" result="blur2" />
@@ -285,130 +71,17 @@
                 </feMerge>
             </filter>
 
-            <!-- Mask for the texts -->
             <clipPath id="text-clip">
                 <rect id="clip-rect" x="0" y="0" width="0" height="1200" />
             </clipPath>
         </defs>
 
-        <!-- Target texts -->
         <text id="target-text" x="600" y="420" text-anchor="middle">LENO TSAI</text>
 
-        <!-- Laser beam -->
         <line id="laser-beam" x1="0" y1="0" x2="0" y2="0" stroke="#fff" stroke-width="4" filter="url(#orangeGlow)" style="opacity: 0;" />
-        
-        <!-- Spark effects -->
         <circle id="spark" cx="0" cy="0" r="0" fill="#fff" filter="url(#orangeGlow)" style="opacity: 0;" />
     </svg>
 
-    <script>
-        window.addEventListener('load', () => {
-            document.fonts.ready.then(() => {
-                const statusMsg = document.getElementById('status-msg');
-                setTimeout(() => {
-                    statusMsg.innerText = "ENGAGING PROTOCOL";
-                    startLaserAnimation();
-                }, 1200);
-            });
-        });
-
-        function startLaserAnimation() {
-            const svg = document.getElementById('main-svg');
-            const text = document.getElementById('target-text');
-            const clipRect = document.getElementById('clip-rect');
-            const beam = document.getElementById('laser-beam');
-            const spark = document.getElementById('spark');
-            const statusMsg = document.getElementById('status-msg');
-            const contactLink = document.getElementById('contact-link');
-
-            const bbox = text.getBBox();
-            
-            text.setAttribute('clip-path', 'url(#text-clip)');
-            clipRect.setAttribute('x', 0);
-            clipRect.setAttribute('y', bbox.y - 100);
-            
-            const startX = bbox.x - 40;
-            const endX = bbox.x + bbox.width + 40;
-            const textCenterY = bbox.y + bbox.height / 2;
-
-            let startTime = null;
-            const duration = 3500; // Slightly faster for mobile feel
-
-            setTimeout(() => {
-                beam.style.opacity = 1;
-                spark.style.opacity = 1;
-                requestAnimationFrame(drawFrame);
-            }, 400);
-
-            function drawFrame(time) {
-                if (!startTime) startTime = time;
-                let elapsed = time - startTime;
-                let progress = Math.min(elapsed / duration, 1);
-
-                let currentX = startX + (endX - startX) * progress;
-                clipRect.setAttribute('width', currentX + 20);
-
-                let mainFreq = 25;
-                let jitterFreq = 60;
-                let scribbleY = textCenterY 
-                              + Math.sin(progress * Math.PI * mainFreq) * (bbox.height * 0.45)
-                              + Math.cos(progress * Math.PI * jitterFreq) * (bbox.height * 0.1);
-
-                beam.setAttribute('x1', currentX);
-                beam.setAttribute('y1', 0);
-                beam.setAttribute('x2', currentX);
-                beam.setAttribute('y2', scribbleY);
-
-                spark.setAttribute('cx', currentX);
-                spark.setAttribute('cy', scribbleY);
-                spark.setAttribute('r', 5 + Math.random() * 6);
-
-                if (progress < 1) {
-                    requestAnimationFrame(drawFrame);
-                } else {
-                    beam.style.opacity = 0;
-                    spark.style.opacity = 0;
-                    statusMsg.innerText = "IDENTITY COMPILED";
-
-                    setTimeout(() => {
-                        text.classList.add('filled');
-                        
-                        setTimeout(() => {
-                            statusMsg.innerText = "DATA UPLOADING...";
-                            text.removeAttribute('clip-path');
-
-                            // Recalculate target for responsive accuracy (iPhone portrait needs this)
-                            const rect = contactLink.getBoundingClientRect();
-                            const targetX = rect.left + rect.width / 2;
-                            const targetY = rect.top + rect.height / 2;
-
-                            const pt = svg.createSVGPoint();
-                            pt.x = targetX;
-                            pt.y = targetY;
-                            const svgPt = pt.matrixTransform(svg.getScreenCTM().inverse());
-
-                            // Origin text center is (600, 420)
-                            const dx = svgPt.x - 600;
-                            const dy = svgPt.y - 420;
-
-                            text.style.transform = `translate(${dx}px, ${dy}px) scale(0.015)`;
-                            text.style.opacity = '0';
-
-                            setTimeout(() => {
-                                contactLink.classList.add('flash-active');
-                                statusMsg.innerText = "ACCESS GRANTED";
-                                
-                                setTimeout(() => {
-                                    contactLink.classList.remove('flash-active');
-                                    statusMsg.innerText = "SYSTEM SECURE";
-                                }, 800);
-                            }, 800);
-
-                        }, 1800);
-                    }, 400);
-                }
-            }
-        }
-    </script>
+    <script src="./components/script.js"></script>
 </body>
 </html>
