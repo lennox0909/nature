@@ -1,0 +1,205 @@
+\documentclass[14pt, a4paper, landscape]{extarticle}
+
+% --- UNIVERSAL PREAMBLE BLOCK ---
+\usepackage[a4paper, landscape, top=2cm, bottom=2cm, left=2.5cm, right=2.5cm]{geometry}
+\usepackage{fontspec}
+
+\usepackage[chinese-hant, bidi=basic, provide=*]{babel}
+
+\babelprovide[import, onchar=ids fonts]{chinese-hant}
+\babelprovide[import, onchar=ids fonts]{english}
+
+% Set default/Latin font to Sans Serif in the main (rm) slot
+\babelfont{rm}{Noto Sans}
+% Assign a specific font for Traditional Chinese text
+\babelfont[chinese-hant]{rm}{Noto Sans CJK TC}
+
+% Add because main language is not English
+\usepackage{enumitem}
+\setlist[itemize]{label=-}
+
+% --- Additional Packages for Tables and Formatting ---
+\usepackage{booktabs}
+\usepackage{tabularx}
+\usepackage{parskip}
+\usepackage{xcolor}
+\usepackage{colortbl}
+\usepackage{tikz}
+\usetikzlibrary{calc, shadows}
+
+% --- Colors & Theme (AMD vs NVIDIA) ---
+\definecolor{bgdark}{HTML}{1A1C23} % 深邃科技藍灰背景
+\definecolor{amdred}{HTML}{ED1C24}
+\definecolor{nvgreen}{HTML}{76B900}
+\definecolor{textwhite}{HTML}{F2F2F2}
+\definecolor{linegray}{HTML}{444444}
+
+% Set table rule color
+\arrayrulecolor{linegray}
+
+% Background Hook for all pages (AMD vs NVIDIA 雙色光暈與科技線條)
+\AddToHook{shipout/background}{
+    \begin{tikzpicture}[remember picture, overlay]
+        % Base dark background
+        \fill[bgdark] (current page.south west) rectangle (current page.north east);
+        
+        % AMD Red Glow (Top Left)
+        \fill[amdred, opacity=0.15] (current page.north west) circle (8cm);
+        
+        % NVIDIA Green Glow (Bottom Right)
+        \fill[nvgreen, opacity=0.12] (current page.south east) circle (8cm);
+        
+        % Abstract Tech Lines (Illustrations)
+        % AMD side
+        \draw[amdred!50, thick, rounded corners=8pt] (current page.west) ++(1, 3) -- ++(2,0) -- ++(1, -1) -- ++(2,0);
+        \fill[amdred!70] (current page.west) ++(6, 2) circle (0.15);
+        \fill[amdred!70] (current page.west) ++(1, 3) circle (0.1);
+        
+        % NVIDIA side
+        \draw[nvgreen!50, thick, rounded corners=8pt] (current page.east) ++(-1, -3) -- ++(-2,0) -- ++(-1, 1) -- ++(-2,0);
+        \fill[nvgreen!70] (current page.east) ++(-6, -2) circle (0.15);
+        \fill[nvgreen!70] (current page.east) ++(-1, -3) circle (0.1);
+
+        % Center PK dividing line (subtle)
+        \draw[white, opacity=0.08, dashed, line width=1.5pt] (current page.south) ++(-2,0) -- ($(current page.north) + (2,0)$);
+    \end{tikzpicture}
+}
+
+% Adjust section formatting for a presentation feel
+\makeatletter
+\renewcommand\section{\@startsection {section}{1}{\z@}%
+                                   {-3.5ex \@plus -1ex \@minus -.2ex}%
+                                   {2.3ex \@plus.2ex}%
+                                   {\normalfont\Large\bfseries\color{white}}}
+\makeatother
+
+\begin{document}
+\color{textwhite} % Set global text color for dark theme
+
+% --- Slide 1: Title ---
+\vspace*{2cm}
+\begin{center}
+    \begin{tikzpicture}
+        % AMD Box
+        \node[fill=amdred!15, draw=amdred, thick, rounded corners, minimum width=4.5cm, minimum height=1.5cm] (amd) at (-4, 0) {\Large \textcolor{amdred}{\textbf{AMD Ryzen AI}}};
+        % NVIDIA Box
+        \node[fill=nvgreen!15, draw=nvgreen, thick, rounded corners, minimum width=4.5cm, minimum height=1.5cm] (nv) at (4, 0) {\Large \textcolor{nvgreen}{\textbf{NVIDIA DGX}}};
+        % PK Circle
+        \node[circle, fill=white, draw=linegray, drop shadow, inner sep=8pt] at (0, 0) {\Large \textbf{\textcolor{bgdark}{PK}}};
+        
+        % Connecting lines
+        \draw[thick, white!50] (amd) -- (-1.2, 0);
+        \draw[thick, white!50] (nv) -- (1.2, 0);
+    \end{tikzpicture}
+    \\[1.5cm]
+    {\Huge \textbf{AMD Ryzen AI Max 與 NVIDIA DGX Spark}} \\[0.5cm]
+    {\Huge \textbf{深度比較分析}} \\[1.5cm]
+    {\Large 2026 個人桌面級 AI 運算平台報告}
+\end{center}
+\clearpage
+
+% --- Slide 2: 前言 ---
+\section*{前言與背景}
+\vspace{0.5cm}
+隨著在本地端（Local）運行大型語言模型（LLM）的需求激增，AMD 與 NVIDIA 紛紛推出了具備 \textbf{\textcolor{white}{128GB 統一記憶體（Unified Memory）}} 的個人桌面級 AI 解決方案。
+
+\vspace{1cm}
+\begin{itemize}
+    \item \textcolor{amdred}{\textbf{AMD 陣營：}} 推出了基於 x86 架構的 \textbf{Ryzen AI Max 系列}（特別是頂級的 Ryzen AI Max+ 395）。
+    \vspace{0.5cm}
+    \item \textcolor{nvgreen}{\textbf{NVIDIA 陣營：}} 推出了採用 ARM 架構與 Blackwell 顯示核心的 \textbf{DGX Spark} 迷你 AI 伺服器。
+\end{itemize}
+\clearpage
+
+% --- Slide 3: 1. 產品定位與核心架構 ---
+\section*{1. 產品定位與核心架構}
+\vspace{0.5cm}
+
+\renewcommand{\arraystretch}{1.8}
+\begin{tabularx}{\textwidth}{l X X}
+\toprule
+\textbf{項目} & \textcolor{amdred}{\textbf{AMD Ryzen AI Max+ 395}} & \textcolor{nvgreen}{\textbf{NVIDIA DGX Spark}} \\
+\midrule
+\textbf{產品定位} & 高階消費級 / 創作者 / AI 開發者工作站與筆電 & 專業 AI 研究員 / 企業級桌面 AI 超級電腦 \\
+\textbf{CPU 架構} & \textbf{x86 架構} \newline 16 核心 Zen 5 (32 執行緒, 最高 5.1GHz) & \textbf{ARM 架構} \newline 20 核心 (10x Cortex-X925 + 10x A725) \\
+\textbf{GPU/AI加速} & Radeon 8060S (RDNA) + XDNA2 NPU \newline 總計提供約 126 TOPS 的 AI 算力 & Blackwell 架構 GPU (第 5 代 Tensor 核心) \newline 高達 1,000 TOPS / 1 PFLOP (FP4 精度) \\
+\textbf{製程技術} & 台積電 4nm & 針對 Blackwell 架構特製化晶片 \\
+\bottomrule
+\end{tabularx}
+
+\vspace{1cm}
+\textbf{分析小結：} \textcolor{amdred}{AMD} 是全能型 x86 電腦（適合日常/遊戲/AI）；\textcolor{nvgreen}{NVIDIA} 則是搭載 Blackwell 精簡版的純粹 AI 運算神機。
+\clearpage
+
+% --- Slide 4: 2. 記憶體與硬體擴充 ---
+\section*{2. 記憶體與硬體擴充}
+\vspace{0.5cm}
+
+\renewcommand{\arraystretch}{1.8}
+\begin{tabularx}{\textwidth}{l X X}
+\toprule
+\textbf{項目} & \textcolor{amdred}{\textbf{AMD Ryzen AI Max+ 395}} & \textcolor{nvgreen}{\textbf{NVIDIA DGX Spark}} \\
+\midrule
+\textbf{系統記憶體} & 最高支援 \textbf{128GB LPDDR5X} 統一記憶體 & \textbf{128GB LPDDR5x} 統一共享記憶體 \\
+\textbf{記憶體頻寬} & 約 273 GB/s & 273 GB/s \\
+\textbf{儲存空間} & 視各家廠商而定 (如配備 1TB$\sim$4TB NVMe SSD) & 內建 4TB NVMe SSD（支援硬體加密） \\
+\textbf{網路與擴充} & Wi-Fi 7, USB4, 最高雙 10Gbe & 支援 NVIDIA ConnectX，\textbf{可串接兩台擴展算力} \\
+\bottomrule
+\end{tabularx}
+
+\vspace{1cm}
+\textbf{分析小結：} 128GB 統一記憶體讓兩者皆可本機載入 70B$\sim$100B 參數的龐大模型。NVIDIA 的專屬連線技術更可疊加雙機運行高達 400B 參數模型。
+\clearpage
+
+% --- Slide 5: 3. 軟體生態與作業系統 ---
+\section*{3. 軟體生態與作業系統}
+\vspace{0.5cm}
+
+\renewcommand{\arraystretch}{1.8}
+\begin{tabularx}{\textwidth}{l X X}
+\toprule
+\textbf{項目} & \textcolor{amdred}{\textbf{AMD Ryzen AI Max}} & \textcolor{nvgreen}{\textbf{NVIDIA DGX Spark}} \\
+\midrule
+\textbf{作業系統} & \textbf{Windows 11} / Linux (Ubuntu) / WSL2 & \textbf{DGX OS} (基於 Ubuntu Linux 客製版) \\
+\textbf{AI 開發環境} & ROCm, LM Studio, llama.cpp & NVIDIA AI Enterprise, CUDA, NGC, Docker \\
+\textbf{軟體相容性} & 極高（幾乎相容所有 x86/Windows 應用） & 存在陣痛期（新 CUDA 架構需重新編譯） \\
+\bottomrule
+\end{tabularx}
+
+\vspace{1cm}
+\textbf{分析小結：} \textcolor{amdred}{AMD} 勝在「Windows 通用性與親民度」，無痛整合日常工作流；\textcolor{nvgreen}{NVIDIA} 則提供業界頂尖的「企業級生態與開發工具棧」。
+\clearpage
+
+% --- Slide 6: 4. 效能、應用場景與價格 ---
+\section*{4. 效能場景與性價比分析}
+\vspace{0.5cm}
+
+\textcolor{amdred}{\textbf{AMD Ryzen AI Max：適合「推論」與「全方位應用」}}
+\begin{itemize}
+    \item 執行大型模型推論時性價比極高。
+    \item 適合需要同時兼顧剪輯、渲染、遊戲與本機 AI 輔助的全方位工作站。
+    \item \textbf{價格區間：} 約 \$2,000 $\sim$ \$2,600 美金（平民版 AI 超級電腦）。
+\end{itemize}
+
+\vspace{0.8cm}
+\textcolor{nvgreen}{\textbf{NVIDIA DGX Spark：適合「微調」與「模型開發」}}
+\begin{itemize}
+    \item Blackwell 架構在訓練和微調上具統治力（支援 FP4）。
+    \item 完美的企業級/雲端部署前本機測試環境。
+    \item \textbf{單機定價：} 約 \$4,000 美金（取得頂級架構的最低門檻）。
+\end{itemize}
+\clearpage
+
+% --- Slide 7: 總結與購買建議 ---
+\section*{總結與購買建議}
+\vspace{1cm}
+
+\textcolor{amdred}{\textbf{選擇 AMD Ryzen AI Max 如果：}} \\
+你是一位軟體工程師、創作者或是科技愛好者，需要在一台電腦上處理各種複雜工作（包括 Windows 環境的軟體），且主要目的是為了「運行（推論）」各種開源的大型 LLM，並追求最高的性價比。
+
+\vspace{1.5cm}
+
+\textcolor{nvgreen}{\textbf{選擇 NVIDIA DGX Spark 如果：}} \\
+你是一位專業的資料科學家、AI 研究員，工作內容包含模型的「訓練與微調（Fine-Tuning）」，需要深入使用 CUDA 生態系、NVIDIA NIM 微服務，且預算充足，希望在桌面上擁有一台純粹的 AI 開發設備。
+
+\end{document}
