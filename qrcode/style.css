@@ -1,0 +1,11 @@
+/* 隱藏預設檔案上傳按鈕的原始樣式 */
+input[type="file"]::file-selector-button {
+    display: none;
+}
+
+/* 確保 QR Code 在小螢幕手機上自動縮放，避免破版 */
+#qr-container canvas,
+#qr-container svg {
+    max-width: 100% !important;
+    height: auto !important;
+}

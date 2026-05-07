@@ -1,0 +1,267 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>QR Code 產生器</title>
+    <!-- <title>Frame QR 碼產生器</title> -->
+    <!-- 引入 Tailwind CSS 進行快速且現代化的樣式設計 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- 引入 qr-code-styling 庫來生成帶有 Logo 和客製化樣式的 QR Code -->
+    <script type="text/javascript" src="https://unpkg.com/qr-code-styling@1.5.0/lib/qr-code-styling.js"></script>
+    <style>
+        /* 隱藏預設檔案上傳按鈕的原始樣式 */
+        input[type="file"]::file-selector-button {
+            display: none;
+        }
+        /* 確保 QR Code 在小螢幕手機上自動縮放，避免破版 */
+        #qr-container canvas, #qr-container svg {
+            max-width: 100% !important;
+            height: auto !important;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 min-h-screen p-3 sm:p-4 md:p-8 font-sans text-slate-800">
+
+    <div class="max-w-5xl mx-auto">
+        <!-- 標題區塊 -->
+        <header class="mb-6 md:mb-8 text-center md:text-left">
+            <h1 class="text-2xl md:text-3xl font-bold text-slate-900 mb-2">QR Code 產生器</h1>
+            <!-- <p class="text-sm md:text-base text-slate-600">在 QR Code 中間建立專屬畫框，完美融合您的品牌 Logo，且不破壞掃描功能。</p> -->
+        </header>
+
+        <div class="flex flex-col md:flex-row gap-6 md:gap-8">
+            <!-- 左側：控制面板 -->
+            <div class="w-full md:w-1/2 order-2 md:order-1 bg-white rounded-2xl shadow-sm border border-slate-200 p-5 md:p-6">
+                <h2 class="text-xl font-semibold mb-5 md:mb-6 flex items-center gap-2">
+                    <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="text-indigo-500"><path d="M12 20h9"/><path d="M16.5 3.5a2.12 2.12 0 0 1 3 3L7 19l-4 1 1-4Z"/></svg>
+                    任何文字或網址
+                    <button id="clear-text" class="ml-auto text-sm text-slate-400 hover:text-red-500 font-medium transition-colors">清除文字</button>
+                </h2>
+
+                <!-- 內容輸入 -->
+                <div class="mb-5">
+                    <!-- <label for="qr-data" class="block text-sm font-medium text-slate-700 mb-2">QR Code 內容 (網址或文字) *</label> -->
+                    <textarea id="qr-data" rows="3" class="w-full px-4 py-3 rounded-xl border border-slate-300 focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all text-base" placeholder="請輸入您想轉換的網址或文字..."></textarea>
+                </div>
+
+                <!-- Logo 上傳 -->
+                <div class="mb-5">
+                    <!-- <label class="block text-sm font-medium text-slate-700 mb-2">中央 Logo 圖片 (選填)</label> -->
+                    <div class="mt-1 flex items-center gap-4">
+                        <label class="cursor-pointer bg-slate-100 hover:bg-slate-200 text-slate-700 py-2.5 px-4 rounded-xl border border-slate-300 transition-colors text-sm font-medium">
+                            Logo圖片(選填)
+                            <input type="file" id="logo-upload" accept="image/png, image/jpeg, image/svg+xml" class="hidden">
+                        </label>
+                        <button id="clear-logo" class="hidden text-sm text-red-500 hover:text-red-700 font-medium transition-colors">移除圖片</button>
+                    </div>
+                </div>
+
+                <!-- 下載選項 -->
+                <div class="pt-5 border-t border-slate-100 mt-2">
+                    <h3 class="text-sm font-medium text-slate-700 mb-3">下載設定</h3>
+                    <div class="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-6">
+                        <div>
+                            <label for="file-name-input" class="block text-xs text-slate-500 mb-1.5">檔案名稱</label>
+                            <input type="text" id="file-name-input" class="w-full px-3 py-2.5 rounded-lg border border-slate-300 focus:ring-1 focus:ring-indigo-500 focus:border-indigo-500 outline-none text-base sm:text-sm transition-all">
+                        </div>
+                        <div>
+                            <label class="block text-xs text-slate-500 mb-1.5">下載格式</label>
+                            <div class="flex gap-5 pt-1.5">
+                                <label class="flex items-center gap-2 cursor-pointer p-1">
+                                    <input type="radio" name="download-ext" value="png" checked class="text-indigo-600 focus:ring-indigo-500 w-4 h-4">
+                                    <span class="text-base sm:text-sm text-slate-700">PNG</span>
+                                </label>
+                                <label class="flex items-center gap-2 cursor-pointer p-1">
+                                    <input type="radio" name="download-ext" value="svg" class="text-indigo-600 focus:ring-indigo-500 w-4 h-4">
+                                    <span class="text-base sm:text-sm text-slate-700">SVG (向量)</span>
+                                </label>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <button id="download-btn" class="w-full bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 text-white font-medium py-3.5 px-4 rounded-xl transition-colors shadow-sm flex justify-center items-center gap-2 text-lg sm:text-base">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" x2="12" y1="15" y2="3"/></svg>
+                        下載 QR Code
+                    </button>
+                    <p class="text-[11px] text-slate-400 mt-3 text-center">提示：在支援的瀏覽器中將自動喚起「另存新檔」以選擇位置</p>
+                </div>
+            </div>
+
+            <!-- 右側：預覽面板 -->
+            <div class="w-full md:w-1/2 flex flex-col order-1 md:order-2">
+                <div class="bg-white rounded-2xl shadow-sm border border-slate-200 p-5 md:p-6 flex-grow flex flex-col items-center justify-center min-h-[320px] md:sticky md:top-8">
+                    <h2 class="text-lg font-medium text-slate-500 mb-4 md:mb-6 self-start w-full text-center md:text-left">即時預覽</h2>
+                    
+                    <!-- QR Code 容器 -->
+                    <div id="qr-container" class="bg-white p-3 md:p-4 rounded-xl shadow-inner border border-slate-100 flex items-center justify-center w-full max-w-[340px] aspect-square">
+                        <!-- QR Code 將透過 JavaScript 渲染於此 -->
+                    </div>
+                    
+                    <!-- <p class="mt-5 md:mt-6 text-xs md:text-sm text-slate-400 text-center flex items-center justify-center gap-1.5 leading-relaxed px-2">
+                        <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" class="flex-shrink-0"><circle cx="12" cy="12" r="10"/><line x1="12" x2="12" y1="8" y2="12"/><line x1="12" x2="12.01" y1="16" y2="16"/></svg>
+                        採用 Level H (30%) 高容錯率，確保畫框不會影響掃描
+                    </p> -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // 初始化變數
+            let qrCode = null;
+            let currentLogoBase64 = "Taipei_Veterans_General_Hospital_Emblem.svg";
+            
+            // DOM 元素
+            const dataInput = document.getElementById('qr-data');
+            const clearTextBtn = document.getElementById('clear-text');
+            const logoUpload = document.getElementById('logo-upload');
+            const clearLogoBtn = document.getElementById('clear-logo');
+            const downloadBtn = document.getElementById('download-btn');
+            const fileNameInput = document.getElementById('file-name-input');
+            const qrContainer = document.getElementById('qr-container');
+
+            // 預設內容
+            const defaultData = "https://www.google.com";
+            dataInput.value = defaultData;
+            
+            // 設定預設檔名 MyQR-yyyy-mmdd
+            const today = new Date();
+            const yyyy = today.getFullYear();
+            const mm = String(today.getMonth() + 1).padStart(2, '0');
+            const dd = String(today.getDate()).padStart(2, '0');
+            const defaultFileName = `MyQR-${yyyy}-${mm}${dd}`;
+            fileNameInput.value = defaultFileName;
+            
+            // 設定 UI 顯示預設 Logo
+            clearLogoBtn.classList.remove('hidden');
+
+            // 初始化 QR CodeStyling 實例
+            function initQRCode() {
+                qrCode = new QRCodeStyling({
+                    width: 300,
+                    height: 300,
+                    data: defaultData,
+                    image: currentLogoBase64,
+                    dotsOptions: {
+                        color: "#0f172a",
+                        type: "rounded" // 圓角樣式看起來更現代
+                    },
+                    backgroundOptions: {
+                        color: "#ffffff",
+                    },
+                    imageOptions: {
+                        crossOrigin: "anonymous",
+                        margin: 10,
+                        imageSize: 0.4 // Logo 佔比 (40%)
+                    },
+                    qrOptions: {
+                        errorCorrectionLevel: 'H' // 【關鍵】必須設為 H 才能有足夠的容錯率放 Frame
+                    }
+                });
+                
+                qrContainer.innerHTML = ""; // 清空容器
+                qrCode.append(qrContainer);
+            }
+
+            // 更新 QR Code
+            function updateQRCode() {
+                if (!qrCode) return;
+                
+                const dataText = dataInput.value.trim() || defaultData;
+                
+                qrCode.update({
+                    data: dataText,
+                    image: currentLogoBase64,
+                    dotsOptions: {
+                        color: "#0f172a"
+                    },
+                    imageOptions: {
+                        margin: 10
+                    }
+                });
+            }
+
+            // 監聽文字輸入
+            dataInput.addEventListener('input', updateQRCode);
+
+            // 清除文字
+            clearTextBtn.addEventListener('click', () => {
+                dataInput.value = "";
+                dataInput.focus(); // 讓游標自動回到輸入框
+                updateQRCode();
+            });
+
+            // 處理圖片上傳
+            logoUpload.addEventListener('change', (e) => {
+                const file = e.target.files[0];
+                if (file) {
+                    clearLogoBtn.classList.remove('hidden');
+                    
+                    const reader = new FileReader();
+                    reader.onload = (event) => {
+                        currentLogoBase64 = event.target.result;
+                        updateQRCode();
+                    };
+                    reader.readAsDataURL(file);
+                }
+            });
+
+            // 清除圖片
+            clearLogoBtn.addEventListener('click', () => {
+                logoUpload.value = ""; // 重置 input file
+                clearLogoBtn.classList.add('hidden');
+                currentLogoBase64 = null;
+                updateQRCode();
+            });
+
+            // 處理下載 (支援選擇位置與檔名)
+            downloadBtn.addEventListener('click', async () => {
+                if (!qrCode) return;
+                
+                const ext = document.querySelector('input[name="download-ext"]:checked').value;
+                const baseFileName = fileNameInput.value.trim() || defaultFileName;
+                
+                // 嘗試使用現代 File System Access API 喚起「另存新檔」對話框
+                if ('showSaveFilePicker' in window && typeof qrCode.getRawData === 'function') {
+                    try {
+                        const blob = await qrCode.getRawData(ext);
+                        
+                        // 喚起原生選擇視窗
+                        const handle = await window.showSaveFilePicker({
+                            suggestedName: `${baseFileName}.${ext}`,
+                            types: [{
+                                description: 'QR Code 圖片檔',
+                                accept: {
+                                    [ext === 'svg' ? 'image/svg+xml' : `image/${ext}`]: [`.${ext}`]
+                                }
+                            }]
+                        });
+                        
+                        // 寫入檔案
+                        const writable = await handle.createWritable();
+                        await writable.write(blob);
+                        await writable.close();
+                        
+                        return; // 下載成功，結束流程
+                    } catch (err) {
+                        // 如果使用者主動取消選擇，則不處理
+                        if (err.name === 'AbortError') return;
+                        console.warn('File System API 失敗，退回預設下載模式:', err);
+                    }
+                }
+                
+                // Fallback 降級處理：給不支援 showSaveFilePicker 的瀏覽器使用
+                qrCode.download({
+                    name: baseFileName,
+                    extension: ext
+                });
+            });
+
+            // 初始執行
+            initQRCode();
+        });
+    </script>
+</body>
+</html>
