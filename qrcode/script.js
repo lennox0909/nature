@@ -13,7 +13,12 @@ document.addEventListener('DOMContentLoaded', () => {
     const qrContainer = document.getElementById('qr-container');
 
     // 預設內容
-    const defaultData = "https://www.google.com";
+    const defaultData = `臺北榮民總醫院
+    人事室 考核組 資訊工程師
+    蔡秉熹 Tsai, Bing-Shi
+    電話：02-28712121轉86243
+    電子郵件：bhtsai2@vghtpe.gov.tw
+    地址：112臺北市北投區石牌路二段201號`;
     dataInput.value = defaultData;
 
     // 設定預設檔名 MyQR-yyyy-mmdd
