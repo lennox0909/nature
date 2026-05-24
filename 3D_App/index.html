@@ -1,0 +1,694 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="h-full overflow-hidden select-none">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Apple Vision Pro Spatial Experience</title>
+    <!-- Tailwind CSS for high-end glassmorphism elements -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js for hardware-accelerated high-fidelity 3D rendering -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- FontAwesome for Apple visionOS icon design system -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Font Inter for system UI elements -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+
+    <style>
+        body {
+            font-family: 'Inter', sans-serif;
+            background: #040408;
+        }
+        /* visionOS glassmorphism simulation with specular reflections */
+        .glassmorphism {
+            background: rgba(255, 255, 255, 0.04);
+            backdrop-filter: blur(30px);
+            -webkit-backdrop-filter: blur(30px);
+            border: 1px solid rgba(255, 255, 255, 0.12);
+            box-shadow: 0 30px 70px rgba(0, 0, 0, 0.5), inset 0 1px 0 rgba(255, 255, 255, 0.15);
+        }
+        .glass-btn {
+            background: rgba(255, 255, 255, 0.08);
+            backdrop-filter: blur(15px);
+            border: 1px solid rgba(255, 255, 255, 0.15);
+            transition: all 0.4s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+        .glass-btn:hover {
+            background: rgba(255, 255, 255, 0.2);
+            box-shadow: 0 0 20px rgba(129, 140, 248, 0.4);
+            transform: translateY(-2px);
+        }
+        /* Dynamic flowing space nebula */
+        .ambient-glow {
+            filter: blur(120px);
+            opacity: 0.45;
+            mix-blend-mode: screen;
+            pointer-events: none;
+            transition: all 1.5s ease-in-out;
+        }
+        /* Rotating system icons animation */
+        @keyframes spin-slow {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+        }
+        .animate-spin-slow {
+            animation: spin-slow 15s linear infinite;
+        }
+        /* Smooth transition for active simulated HUD exit elements */
+        .lazy-hud {
+            position: fixed;
+            pointer-events: auto;
+            z-index: 999;
+            transition: opacity 0.5s cubic-bezier(0.16, 1, 0.3, 1);
+        }
+    </style>
+</head>
+<body class="h-full w-full relative text-white flex items-center justify-center overflow-hidden">
+
+    <!-- Non-blocking System Toast Notification -->
+    <div id="toast-overlay" class="fixed top-8 left-1/2 -translate-x-1/2 z-[100] pointer-events-none transition-all duration-500 transform -translate-y-12 opacity-0 glassmorphism px-6 py-4 rounded-3xl text-sm font-medium tracking-wide flex items-center gap-3 shadow-[0_0_30px_rgba(99,102,241,0.4)] max-w-[90vw] md:max-w-md text-center">
+        <div class="w-6 h-6 rounded-full bg-indigo-500/20 flex items-center justify-center border border-indigo-500/30 shrink-0">
+            <i class="fa-solid fa-circle-info text-indigo-400"></i>
+        </div>
+        <span id="toast-message" class="text-white/95 text-xs md:text-sm"></span>
+    </div>
+
+    <!-- Background Space Aura -->
+    <div class="absolute inset-0 z-0 overflow-hidden pointer-events-none">
+        <div id="aura-1" class="ambient-glow absolute -top-[20%] -left-[20%] w-[70%] h-[70%] rounded-full bg-gradient-to-br from-indigo-600 via-indigo-900 to-transparent"></div>
+        <div id="aura-2" class="ambient-glow absolute -bottom-[20%] -right-[20%] w-[70%] h-[70%] rounded-full bg-gradient-to-br from-pink-600 via-purple-900 to-transparent"></div>
+    </div>
+
+    <!-- WebGL Canvas for Three.js rendering -->
+    <div id="canvas-container" class="absolute inset-0 z-10 w-full h-full"></div>
+
+    <!-- Main HUD UI Panel -->
+    <div id="main-interface" class="relative z-20 flex flex-col lg:flex-row gap-6 max-w-6xl w-full p-4 lg:p-8 h-[90vh] lg:h-[80vh] items-center justify-center transition-all duration-1000">
+        
+        <!-- Left Column: Controlling Panel -->
+        <div class="glassmorphism w-full lg:w-[380px] rounded-[36px] p-6 flex flex-col justify-between h-[45%] lg:h-full shrink-0">
+            <div class="space-y-6">
+                <!-- Title Block -->
+                <div class="flex items-center gap-3">
+                    <div class="w-12 h-12 rounded-2xl bg-indigo-500/20 flex items-center justify-center border border-indigo-500/30">
+                        <i class="fa-solid fa-compass text-indigo-400 text-lg animate-spin-slow"></i>
+                    </div>
+                    <div>
+                        <h2 class="text-lg font-semibold tracking-wider">星際控制台</h2>
+                        <p class="text-[10px] text-white/40 tracking-widest uppercase">Spatial Sandbox Control</p>
+                    </div>
+                </div>
+
+                <!-- 3D Shape Selectors -->
+                <div class="space-y-3">
+                    <label class="text-xs font-semibold text-white/50 tracking-wider uppercase block">1. 核心幾何維度</label>
+                    <div class="grid grid-cols-1 gap-2">
+                        <button onclick="changeGeometry('torus')" id="btn-torus" class="glass-btn py-3 px-4 rounded-2xl flex items-center justify-between text-sm font-medium border-indigo-500/50 bg-indigo-500/20">
+                            <span>雙曲環面 (Torus)</span>
+                            <i class="fa-solid fa-circle-nodes text-indigo-400"></i>
+                        </button>
+                        <button onclick="changeGeometry('sphere')" id="btn-sphere" class="glass-btn py-3 px-4 rounded-2xl flex items-center justify-between text-sm font-medium">
+                            <span>高維星團 (Sphere)</span>
+                            <i class="fa-solid fa-globe text-white/40"></i>
+                        </button>
+                        <button onclick="changeGeometry('knot')" id="btn-knot" class="glass-btn py-3 px-4 rounded-2xl flex items-center justify-between text-sm font-medium">
+                            <span>克萊因結 (Klein Knot)</span>
+                            <i class="fa-solid fa-wand-magic-sparkles text-white/40"></i>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Particle Velocity Slider -->
+                <div class="space-y-3">
+                    <div class="flex justify-between items-center">
+                        <label class="text-xs font-semibold text-white/50 tracking-wider uppercase">2. 空間能量流速</label>
+                        <span id="speed-val" class="text-xs bg-white/10 px-2 py-0.5 rounded-lg text-indigo-300 font-mono">1.0x</span>
+                    </div>
+                    <input type="range" id="slider-speed" min="0.1" max="4.0" step="0.1" value="1.0" class="w-full h-1.5 bg-white/10 rounded-lg appearance-none cursor-pointer accent-indigo-400">
+                </div>
+            </div>
+        </div>
+
+        <!-- Center Column: Launch Deck & Developer Instructions -->
+        <div class="glassmorphism flex-1 rounded-[36px] p-6 lg:p-8 flex flex-col justify-between h-[50%] lg:h-full relative overflow-hidden">
+            <!-- Glowing Corner Mesh -->
+            <div class="absolute -top-16 -right-16 w-56 h-56 bg-indigo-500/10 rounded-full blur-3xl pointer-events-none"></div>
+
+            <div class="space-y-4">
+                <span class="px-3 py-1 rounded-full bg-indigo-500/20 border border-indigo-500/30 text-[10px] font-semibold tracking-widest text-indigo-300 uppercase">Native WebXR Sandbox</span>
+                <h1 class="text-2xl lg:text-4xl font-extrabold tracking-tight leading-tight">Apple Vision Pro<br><span class="bg-clip-text text-transparent bg-gradient-to-r from-indigo-300 via-pink-300 to-purple-400">空間沉浸探索體驗</span></h1>
+                
+                <!-- Explicit developer sandbox tutorial -->
+                <div class="p-4 rounded-2xl bg-indigo-500/10 border border-indigo-500/20 space-y-2 text-xs leading-relaxed text-indigo-200/90">
+                    <p class="font-semibold text-white flex items-center gap-1.5 text-amber-300">
+                        <i class="fa-solid fa-shield-halved"></i>
+                        沙盒限制安全須知 (免除 Insecure 報錯)
+                    </p>
+                    <p>
+                        在當前的「預覽編輯器」內，瀏覽器會基於安全性 (Iframe 沙盒) 阻擋並引發 <code>The operation is insecure</code> 錯誤。我們已經為您加入了<b>主動防錯預檢技術</b>：當在 Iframe 內點選時，會直接無痛載入「3D 空間立體模擬器」！
+                    </p>
+                    <p class="border-t border-white/5 pt-2">
+                        若您想在真機 Apple Vision Pro 上召喚原生 AR/VR，請在右上角取得檔案代碼，並部署於任何支援 <b>HTTPS</b> 的獨立網站（如 GitHub Pages）便能完美開啟原生 WebXR 模式。
+                    </p>
+                </div>
+            </div>
+
+            <!-- Action Command Triggers -->
+            <div class="flex flex-col sm:flex-row gap-3 mt-4">
+                <!-- Direct Simulator Trigger (Ensures 100% visible simulated testing right here!) -->
+                <button onclick="enterSimulationMode()" class="flex-1 py-4 px-6 rounded-2xl bg-gradient-to-r from-indigo-500 via-purple-500 to-pink-500 text-white font-bold text-sm flex items-center justify-center gap-2 shadow-lg shadow-indigo-500/20 hover:shadow-indigo-500/40 hover:scale-[1.02] active:scale-[0.98] transition-all duration-300 cursor-pointer">
+                    <i class="fa-solid fa-wand-magic-sparkles animate-bounce"></i>
+                    <span>⚡ 立即啟動 3D 視線隨動模擬</span>
+                </button>
+                <!-- Real WebXR Mode Trigger -->
+                <button onclick="requestRealWebXR()" class="py-4 px-5 rounded-2xl glass-btn text-white/90 font-semibold text-sm flex items-center justify-center gap-2 hover:text-white">
+                    <i class="fa-brands fa-apple text-lg text-indigo-400"></i>
+                    <span>啟動真機 WebXR 模式</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- The Lazy-Gaze Follow HUD (Floating Exit Option for SIMULATOR Mode) -->
+    <!-- This coordinates smoothly with the camera's sightline using Lerp -->
+    <div id="sim-gaze-hud" class="lazy-hud opacity-0 pointer-events-none scale-75" style="left: 50%; top: 50%; transform: translate(-50%, -50%);">
+        <button onclick="exitSimulationMode()" class="flex items-center gap-3 py-3.5 px-7 rounded-full bg-rose-600/95 hover:bg-rose-500 text-white font-semibold text-sm tracking-wide shadow-[0_0_30px_rgba(244,63,94,0.7)] border border-rose-400/40 cursor-pointer transition-all duration-300 active:scale-95">
+            <i class="fa-solid fa-circle-xmark text-lg"></i>
+            <span>✕ EXIT 3D 退出立體模式</span>
+        </button>
+    </div>
+
+    <!-- Simulated Mode Dialog Intro -->
+    <div id="welcome-dialog" class="fixed inset-0 bg-black/85 z-[90] flex items-center justify-center opacity-0 pointer-events-none transition-all duration-500">
+        <div class="glassmorphism max-w-md w-full p-8 rounded-[36px] m-4 text-center space-y-6">
+            <div class="w-16 h-16 rounded-full bg-indigo-500/10 border border-indigo-500/30 flex items-center justify-center mx-auto text-indigo-400 text-2xl">
+                <i class="fa-regular fa-eye animate-pulse"></i>
+            </div>
+            <div class="space-y-2">
+                <h3 class="text-xl font-bold">進入空間立體模擬視野</h3>
+                <p class="text-xs text-white/50 leading-relaxed">
+                    在當前視窗中，請<b>按住並滑動滑鼠（或手指拖曳）</b>以模擬戴著 Apple Vision Pro 轉動頭部的視角。<br>
+                    您將看見 **「退出立體」紅色按鈕以極富質感的空氣阻尼跟隨在視野右上方**，點擊它即可立刻退出！
+                </p>
+            </div>
+            <button onclick="closeWelcomeDialog()" class="w-full py-3.5 rounded-2xl bg-indigo-500 hover:bg-indigo-400 text-white font-bold transition-colors duration-300 text-sm">
+                開始空間探索
+            </button>
+        </div>
+    </div>
+
+    <script>
+        // Core variables
+        let scene, camera, renderer, starfield, mainObject;
+        let rotationSpeed = 1.0;
+        let currentGeometryType = 'torus';
+        let isSimulated = false;
+        let targetCamRotX = 0, targetCamRotY = 0;
+        
+        // WebXR Session State
+        let xrSession = null;
+        let vrExitButton = null; // 3D Mesh Button for Real AVP VR Space
+
+        // Mouse/Touch Drag variables
+        let isUserDragging = false;
+        let prevMousePos = { x: 0, y: 0 };
+
+        // Initialize On Load
+        window.onload = function() {
+            initThree();
+            setupInteractions();
+            animateLoop();
+        };
+
+        function initThree() {
+            const container = document.getElementById('canvas-container');
+            
+            // Build Scene & Fog
+            scene = new THREE.Scene();
+            scene.fog = new THREE.FogExp2(0x040408, 0.015);
+
+            // Build Camera
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 0, 7);
+            scene.add(camera);
+
+            // WebGL Renderer with High-DPI support
+            renderer = new THREE.WebGLRenderer({ antialias: true, alpha: false });
+            renderer.setSize(container.clientWidth, container.clientHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.xr.enabled = true; // Enabled for real WebXR immersive support
+            container.appendChild(renderer.domElement);
+
+            // Lights
+            const ambient = new THREE.AmbientLight(0xffffff, 0.15);
+            scene.add(ambient);
+
+            const light1 = new THREE.PointLight(0x818cf8, 2.5, 60);
+            light1.position.set(12, 12, 12);
+            scene.add(light1);
+
+            const light2 = new THREE.PointLight(0xec4899, 2.5, 60);
+            light2.position.set(-12, -12, -12);
+            scene.add(light2);
+
+            // Build Background Dust (AVP Atmosphere)
+            buildStars();
+
+            // Build Center Geometry
+            buildGeometry();
+
+            // Build the VR-Only Floating Exit Button (Inside WebGL Scene)
+            build3DExitButton();
+        }
+
+        // Starfield
+        function buildStars() {
+            if (starfield) scene.remove(starfield);
+
+            const count = 3000;
+            const geom = new THREE.BufferGeometry();
+            const pos = new Float32Array(count * 3);
+            const cols = new Float32Array(count * 3);
+
+            for (let i = 0; i < count * 3; i += 3) {
+                const r = 20 + Math.random() * 40;
+                const theta = Math.random() * Math.PI * 2;
+                const phi = Math.acos(2 * Math.random() - 1);
+
+                pos[i] = r * Math.sin(phi) * Math.cos(theta);
+                pos[i + 1] = r * Math.sin(phi) * Math.sin(theta);
+                pos[i + 2] = r * Math.cos(phi);
+
+                // Cosmic visual tones
+                cols[i] = 0.6 + Math.random() * 0.4; // R
+                cols[i + 1] = 0.5 + Math.random() * 0.5; // G
+                cols[i + 2] = 1.0; // B
+            }
+
+            geom.setAttribute('position', new THREE.BufferAttribute(pos, 3));
+            geom.setAttribute('color', new THREE.BufferAttribute(cols, 3));
+
+            const mat = new THREE.PointsMaterial({
+                size: 0.14,
+                vertexColors: true,
+                transparent: true,
+                opacity: 0.85,
+                blending: THREE.AdditiveBlending
+            });
+
+            starfield = new THREE.Points(geom, mat);
+            scene.add(starfield);
+        }
+
+        // Core Interactive 3D Objects
+        function buildGeometry() {
+            if (mainObject) scene.remove(mainObject);
+
+            let geo;
+            if (currentGeometryType === 'torus') {
+                geo = new THREE.TorusGeometry(1.8, 0.5, 24, 100);
+            } else if (currentGeometryType === 'sphere') {
+                geo = new THREE.SphereGeometry(2.0, 48, 48);
+            } else {
+                geo = new THREE.TorusKnotGeometry(1.4, 0.4, 150, 16);
+            }
+
+            // High-spec wireframe holographic mesh
+            const mat = new THREE.MeshBasicMaterial({
+                color: 0x818cf8,
+                wireframe: true,
+                transparent: true,
+                opacity: 0.8,
+                blending: THREE.AdditiveBlending
+            });
+
+            mainObject = new THREE.Mesh(geo, mat);
+            scene.add(mainObject);
+        }
+
+        // Build the physical 3D Exit button floating in 3D VR space
+        function build3DExitButton() {
+            const group = new THREE.Group();
+            
+            // Central Red Core
+            const coreGeo = new THREE.SphereGeometry(0.1, 32, 32);
+            const coreMat = new THREE.MeshBasicMaterial({
+                color: 0xf43f5e,
+                transparent: true,
+                opacity: 0.9,
+                blending: THREE.AdditiveBlending
+            });
+            const core = new THREE.Mesh(coreGeo, coreMat);
+            group.add(core);
+
+            // Halo Ring
+            const ringGeo = new THREE.TorusGeometry(0.14, 0.015, 16, 100);
+            const ringMat = new THREE.MeshBasicMaterial({
+                color: 0xff85a2,
+                transparent: true,
+                opacity: 0.6
+            });
+            const ring = new THREE.Mesh(ringGeo, ringMat);
+            group.add(ring);
+
+            group.position.set(0.6, 0.4, -1.5); // Initial floating location
+            vrExitButton = group;
+            
+            scene.add(vrExitButton);
+            vrExitButton.visible = false; // Hidden on 2D desktop screen
+        }
+
+        // Switch Geometry
+        function changeGeometry(type) {
+            currentGeometryType = type;
+            const buttons = ['torus', 'sphere', 'knot'];
+            buttons.forEach(b => {
+                const el = document.getElementById(`btn-${b}`);
+                if (b === type) {
+                    el.classList.add('border-indigo-500/50', 'bg-indigo-500/20');
+                    el.querySelector('i').className = b === 'torus' ? 'fa-solid fa-circle-nodes text-indigo-400' : b === 'sphere' ? 'fa-solid fa-globe text-indigo-400' : 'fa-solid fa-wand-magic-sparkles text-indigo-400';
+                } else {
+                    el.classList.remove('border-indigo-500/50', 'bg-indigo-500/20');
+                    el.querySelector('i').className = b === 'torus' ? 'fa-solid fa-circle-nodes text-white/40' : b === 'sphere' ? 'fa-solid fa-globe text-white/40' : 'fa-solid fa-wand-magic-sparkles text-white/40';
+                }
+            });
+
+            buildGeometry();
+        }
+
+        // Interactions and Listeners
+        function setupInteractions() {
+            // Velocity Slider
+            document.getElementById('slider-speed').addEventListener('input', (e) => {
+                rotationSpeed = parseFloat(e.target.value);
+                document.getElementById('speed-val').textContent = rotationSpeed.toFixed(1) + 'x';
+            });
+
+            // Resizing
+            window.addEventListener('resize', () => {
+                camera.aspect = window.innerWidth / window.innerHeight;
+                camera.updateProjectionMatrix();
+                renderer.setSize(window.innerWidth, window.innerHeight);
+            });
+
+            // View Orientation Drag Triggers
+            window.addEventListener('mousedown', (e) => {
+                isUserDragging = true;
+                prevMousePos = { x: e.clientX, y: e.clientY };
+            });
+
+            window.addEventListener('mousemove', (e) => {
+                if (!isUserDragging) return;
+                const deltaX = e.clientX - prevMousePos.x;
+                const deltaY = e.clientY - prevMousePos.y;
+
+                targetCamRotY -= deltaX * 0.003;
+                targetCamRotX -= deltaY * 0.003;
+                targetCamRotX = Math.max(-Math.PI / 4.5, Math.min(Math.PI / 4.5, targetCamRotX)); // clamp looking up/down
+
+                prevMousePos = { x: e.clientX, y: e.clientY };
+            });
+
+            window.addEventListener('mouseup', () => { isUserDragging = false; });
+
+            // Touch Drag Triggers
+            window.addEventListener('touchstart', (e) => {
+                if (e.touches.length === 1) {
+                    isUserDragging = true;
+                    prevMousePos = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+                }
+            }, { passive: true });
+
+            window.addEventListener('touchmove', (e) => {
+                if (!isUserDragging || e.touches.length !== 1) return;
+                const deltaX = e.touches[0].clientX - prevMousePos.x;
+                const deltaY = e.touches[0].clientY - prevMousePos.y;
+
+                targetCamRotY -= deltaX * 0.004;
+                targetCamRotX -= deltaY * 0.004;
+                targetCamRotX = Math.max(-Math.PI / 4.5, Math.min(Math.PI / 4.5, targetCamRotX));
+
+                prevMousePos = { x: e.touches[0].clientX, y: e.touches[0].clientY };
+            }, { passive: true });
+
+            window.addEventListener('touchend', () => { isUserDragging = false; });
+        }
+
+        // Display beautiful responsive Toast
+        function showGlassToast(msg) {
+            const toast = document.getElementById('toast-overlay');
+            const messageEl = document.getElementById('toast-message');
+            messageEl.textContent = msg;
+
+            toast.classList.remove('opacity-0', '-translate-y-12', 'pointer-events-none');
+            toast.classList.add('opacity-100', 'translate-y-0');
+
+            setTimeout(() => {
+                toast.classList.remove('opacity-100', 'translate-y-0');
+                toast.classList.add('opacity-0', '-translate-y-12', 'pointer-events-none');
+            }, 5500);
+        }
+
+        // REQUEST REAL NATIVE WEBXR SESSIONS (ONLY WORKS IN SECURE TABS / OUTSIDE IFRAME)
+        async function requestRealWebXR() {
+            // STEP 1: PREEMPTIVE DETECTION to avoid triggering annoying browser security console errors!
+            // If we are currently wrapped inside an iframe (like the platform preview), WebXR requestSession will ALWAYS throw.
+            const isInIframe = window.self !== window.top;
+            if (isInIframe) {
+                showGlassToast("偵測到沙盒預覽環境！已為您自動切換至「3D 空間模擬器」，避免瀏覽器安全阻擋 🛡️");
+                setTimeout(() => {
+                    enterSimulationMode();
+                }, 1500);
+                return;
+            }
+
+            // STEP 2: Safe Standard WebXR session request
+            if ('xr' in navigator) {
+                try {
+                    // Pre-test support catching potential security rejections safely
+                    const isSupported = await navigator.xr.isSessionSupported('immersive-vr').catch(() => false);
+                    if (isSupported) {
+                        showGlassToast("確認裝置相容！正在向 visionOS 申請 3D 沉浸式空間...");
+                        
+                        // Setup WebXR Session with hand tracking if available
+                        const session = await navigator.xr.requestSession('immersive-vr', {
+                            optionalFeatures: ['local-floor', 'hand-tracking']
+                        });
+
+                        renderer.xr.enabled = true;
+                        await renderer.xr.setSession(session);
+                        xrSession = session;
+                        
+                        // Reveal our WebGL Exit Button in the 3D space
+                        vrExitButton.visible = true;
+
+                        // Setup Native Gesture Select Event (Pinch Event on Apple Vision Pro)
+                        xrSession.addEventListener('select', handleAVPPinchAction);
+
+                        xrSession.addEventListener('end', () => {
+                            renderer.xr.enabled = false;
+                            xrSession = null;
+                            vrExitButton.visible = false;
+                            showGlassToast("已退出 Vision Pro 原生 WebXR 沉浸模式");
+                        });
+                    } else {
+                        showGlassToast("未偵測到 AVP 獨立環境。已為您啟動 3D 空間模擬器！");
+                        enterSimulationMode();
+                    }
+                } catch (err) {
+                    // Safe fallback silently avoiding throwing unhandled security stack errors to browser console
+                    showGlassToast("WebXR 請求遭瀏覽器安全機制保護。已立即切換至空間模擬器！");
+                    enterSimulationMode();
+                }
+            } else {
+                showGlassToast("目前瀏覽器無 WebXR 支持。已立即為您切換至 3D 空間模擬器！");
+                enterSimulationMode();
+            }
+        }
+
+        // WebXR AVP Gaze-Look and Finger-Pinch Event Raycaster!
+        function handleAVPPinchAction(event) {
+            const inputSource = event.inputSource;
+            if (!inputSource || !inputSource.targetRaySpace || !xrSession) return;
+
+            // Gather active coordinate space
+            const xrFrame = event.frame;
+            const refSpace = renderer.xr.getReferenceSpace();
+            const pose = xrFrame.getPose(inputSource.targetRaySpace, refSpace);
+
+            if (pose) {
+                // Raycasting matrix coordinates along user's pinch-direction
+                const pos = new THREE.Vector3().setFromMatrixPosition(pose.transform.matrix);
+                const dir = new THREE.Vector3(0, 0, -1).applyMatrix4(pose.transform.matrix).sub(pos).normalize();
+
+                const raycaster = new THREE.Raycaster(pos, dir);
+                const hitList = raycaster.intersectObject(vrExitButton, true);
+
+                if (hitList.length > 0) {
+                    // PINCH COLLIDED WITH VR EXIT BUTTON! Exit immersive VR state immediately.
+                    xrSession.end();
+                }
+            }
+        }
+
+        // ENTER 3D SPACE SIMULATOR MODE (For 100% reliable local testing)
+        function enterSimulationMode() {
+            isSimulated = true;
+
+            // Fade Main Interface UI
+            const mainUI = document.getElementById('main-interface');
+            mainUI.classList.add('opacity-0', 'scale-95', 'pointer-events-none');
+
+            // Zoom Camera closer
+            const zoomIn = new TweenSimulate(camera.position, 'z', 4.0, 1500);
+
+            // Pop instruction dialog
+            setTimeout(() => {
+                const diag = document.getElementById('welcome-dialog');
+                diag.classList.remove('opacity-0', 'pointer-events-none');
+            }, 1000);
+        }
+
+        function closeWelcomeDialog() {
+            const diag = document.getElementById('welcome-dialog');
+            diag.classList.add('opacity-0', 'pointer-events-none');
+
+            // Show HUD Follow Button
+            const hud = document.getElementById('sim-gaze-hud');
+            hud.classList.remove('opacity-0', 'pointer-events-none', 'scale-75');
+            hud.classList.add('opacity-100', 'scale-100');
+        }
+
+        function exitSimulationMode() {
+            isSimulated = false;
+
+            // Hide HUD Follow Button
+            const hud = document.getElementById('sim-gaze-hud');
+            hud.classList.add('opacity-0', 'pointer-events-none', 'scale-75');
+            hud.classList.remove('opacity-100', 'scale-100');
+
+            // Reset view angles
+            targetCamRotX = 0;
+            targetCamRotY = 0;
+
+            // Zoom out Camera
+            new TweenSimulate(camera.position, 'z', 7, 1200);
+
+            // Restore Main Interface
+            const mainUI = document.getElementById('main-interface');
+            setTimeout(() => {
+                mainUI.classList.remove('opacity-0', 'scale-95', 'pointer-events-none');
+            }, 600);
+        }
+
+        // Camera Smooth Motion Tweening helper
+        class TweenSimulate {
+            constructor(obj, prop, target, duration) {
+                const start = obj[prop];
+                const startTime = performance.now();
+
+                function step() {
+                    const elapsed = performance.now() - startTime;
+                    const progress = Math.min(elapsed / duration, 1);
+                    const ease = 1 - Math.pow(1 - progress, 3); // easeOutCubic
+                    obj[prop] = start + (target - start) * ease;
+
+                    if (progress < 1) {
+                        requestAnimationFrame(step);
+                    }
+                }
+                step();
+            }
+        }
+
+        // LERP Smooth Movement Calculations
+        function updateSpatialCamera() {
+            // Apply camera rotations with visionOS head-tracking style dampening
+            camera.rotation.y += (targetCamRotY - camera.rotation.y) * 0.12;
+            camera.rotation.x += (targetCamRotX - camera.rotation.x) * 0.12;
+        }
+
+        // Coordinate positions for simulation HUD button positioning
+        let simulatedHudX = window.innerWidth / 2;
+        let simulatedHudY = window.innerHeight / 2;
+
+        function updateSimulationGazeHUD() {
+            const hud = document.getElementById('sim-gaze-hud');
+            if (!isSimulated || hud.classList.contains('opacity-0')) return;
+
+            // Project 3D coordinate point (representing upper-right gaze offset) into 2D viewport space
+            const anchorVector = new THREE.Vector3(0.55, 0.35, -1.5);
+            anchorVector.applyMatrix4(camera.matrixWorld);
+            anchorVector.project(camera);
+
+            const screenX = (anchorVector.x * 0.5 + 0.5) * window.innerWidth;
+            const screenY = (-anchorVector.y * 0.5 + 0.5) * window.innerHeight;
+
+            // Smooth linear interpolation (Smooth Lazy-Drift)
+            simulatedHudX += (screenX - simulatedHudX) * 0.09;
+            simulatedHudY += (screenY - simulatedHudY) * 0.09;
+
+            hud.style.left = `${simulatedHudX}px`;
+            hud.style.top = `${simulatedHudY}px`;
+        }
+
+        // Real AVP WebXR Native Mode: Floating HUD tracking gaze
+        function updateNativeVRGazeHUD() {
+            if (!xrSession || !vrExitButton) return;
+
+            // Position the 3D VR Button 1.3 meters in front of the VR view camera, offset to the upper right
+            const targetPos = new THREE.Vector3(0.45, 0.3, -1.3);
+            targetPos.applyMatrix4(camera.matrixWorld); // Offset relative to active headset space
+
+            // Smooth interpolation (Lazy-Gaze Chase)
+            vrExitButton.position.lerp(targetPos, 0.09);
+
+            // Always make it billboard toward the viewer's orientation
+            vrExitButton.lookAt(camera.position);
+        }
+
+        // Master Animation Rendering Frame Loops
+        function animateLoop() {
+            if (xrSession) {
+                renderer.setAnimationLoop(renderXRFrame);
+            } else {
+                requestAnimationFrame(animateLoop);
+                renderRegularFrame();
+            }
+        }
+
+        function renderRegularFrame() {
+            // Rotate Geometry
+            if (mainObject) {
+                mainObject.rotation.y += 0.006 * rotationSpeed;
+                mainObject.rotation.x += 0.003 * rotationSpeed;
+            }
+
+            // Spin space dust
+            if (starfield) {
+                starfield.rotation.y += 0.0003 * rotationSpeed;
+            }
+
+            updateSpatialCamera();
+            updateSimulationGazeHUD();
+
+            renderer.render(scene, camera);
+        }
+
+        function renderXRFrame(time, frame) {
+            // WebXR-driven update loop
+            if (mainObject) {
+                mainObject.rotation.y += 0.006 * rotationSpeed;
+                mainObject.rotation.x += 0.003 * rotationSpeed;
+            }
+            if (starfield) {
+                starfield.rotation.y += 0.0003 * rotationSpeed;
+            }
+
+            // Real WebXR gaze-follow mechanics inside virtual view
+            updateNativeVRGazeHUD();
+
+            renderer.render(scene, camera);
+        }
+    </script>
+</body>
+</html>
