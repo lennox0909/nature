@@ -1,0 +1,810 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>空間數位深淵 | 駭客任務 AVP 視線雷達感測版</title>
+    <!-- Tailwind CSS 適用於精美的 2D HUD 介面 -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome 圖標 -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts Matrix 風格字體 -->
+    <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&display=swap" rel="stylesheet">
+    
+    <style>
+        body {
+            font-family: 'Share Tech Mono', monospace;
+            margin: 0;
+            overflow: hidden;
+            background-color: #000;
+        }
+        /* 矩陣發光效果 */
+        .neon-text-green {
+            text-shadow: 0 0 5px #00f000, 0 0 10px #00f000, 0 0 20px #00f000;
+        }
+        .neon-text-glitch {
+            text-shadow: -2px 0 #ff0000, 2px 0 #0000ff;
+            animation: glitch 0.5s infinite;
+        }
+        @keyframes glitch {
+            0% { transform: translate(0); }
+            20% { transform: translate(-2px, 2px); }
+            40% { transform: translate(-2px, -2px); }
+            60% { transform: translate(2px, 2px); }
+            80% { transform: translate(2px, -2px); }
+            100% { transform: translate(0); }
+        }
+        .glassmorphism {
+            background: rgba(0, 15, 0, 0.8);
+            backdrop-filter: blur(16px);
+            border: 1px solid rgba(0, 240, 0, 0.3);
+            box-shadow: 0 8px 32px 0 rgba(0, 0, 0, 0.9);
+        }
+        /* AVP 按鈕特殊動畫 */
+        @keyframes matrix-pulse {
+            0%, 100% {
+                box-shadow: 0 0 10px rgba(0, 240, 0, 0.4);
+            }
+            50% {
+                box-shadow: 0 0 25px rgba(0, 240, 0, 0.8);
+            }
+        }
+        .avp-btn-matrix {
+            animation: matrix-pulse 1.5s infinite;
+        }
+    </style>
+</head>
+<body class="text-green-400 select-none">
+
+    <!-- 3D 渲染畫布 -->
+    <canvas id="webgl-canvas" class="absolute inset-0 w-full h-full z-0"></canvas>
+
+    <!-- 2D HUD 控制介面 -->
+    <div id="hud-container" class="absolute inset-0 flex flex-col justify-between p-6 pointer-events-none z-10 transition-opacity duration-300">
+        
+        <!-- 頂部標題與狀態 -->
+        <div class="flex justify-between items-start w-full">
+            <div class="glassmorphism rounded-2xl p-4 pointer-events-auto flex flex-col max-w-sm">
+                <div class="flex items-center gap-3">
+                    <div class="w-3 h-3 bg-green-500 rounded-full animate-ping"></div>
+                    <h1 class="text-xl font-bold tracking-widest text-green-300 uppercase neon-text-green">MATRIX: EYE SCAN</h1>
+                </div>
+                <div class="h-[1px] bg-green-900/50 my-2"></div>
+                <div class="text-xs text-green-100 space-y-1">
+                    <div>系統核心: <span class="text-green-300">AR 視線解構模組</span></div>
+                    <div>環境感測: <span id="sensing-status" class="text-green-400 font-bold">視線空間雷達掃描已就緒</span></div>
+                    <div>雷達發射波頻: <span id="radar-pulse" class="text-green-300 font-bold">ACTIVE</span></div>
+                    <div>目標數據塊: <span id="target-name" class="text-white neon-text-green">未選取</span></div>
+                </div>
+            </div>
+
+            <!-- 開啟/關閉 AVP 說明手冊按鈕 -->
+            <button id="guide-toggle-btn" class="glassmorphism pointer-events-auto rounded-xl p-3 text-green-400 hover:text-white hover:bg-green-950/40 transition duration-300 text-sm">
+                <i class="fa-solid fa-network-wired mr-2"></i><span>開啟 AVP 基本設定教學</span>
+            </button>
+        </div>
+
+        <!-- 底部中央：AR 沉浸入口 -->
+        <div class="flex flex-col items-center gap-4 w-full">
+            <div class="flex flex-col items-center gap-2">
+                <button id="enter-vr-btn" class="avp-btn-matrix pointer-events-auto bg-black hover:bg-green-950 text-green-100 font-bold px-8 py-4 rounded-full flex items-center gap-3 shadow-lg transition duration-300 transform active:scale-95 text-lg border border-green-500">
+                    <i class="fa-solid fa-glasses text-xl"></i>
+                    <span>接入「駭客任務」空間代碼層</span>
+                </button>
+                <p class="text-xs text-green-500/80 mt-1 text-center max-w-md">
+                    接入後，轉動您的頭部與視線，綠色數位雷達波將實時對您房間進行解構掃描！
+                </p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Apple Vision Pro 設定指南 (預設彈出) -->
+    <div id="guide-modal" class="fixed inset-0 bg-black/95 flex items-center justify-center p-4 z-50 transition-opacity duration-300">
+        <div class="glassmorphism max-w-lg w-full rounded-3xl p-8 border border-green-500/30 flex flex-col gap-6 relative">
+            <button id="close-guide-btn" class="absolute top-4 right-4 text-green-500 hover:text-white text-xl">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            
+            <div class="text-center">
+                <div class="inline-flex p-3 bg-green-500/10 rounded-full mb-3 text-green-300 text-2xl neon-text-green">
+                    <i class="fa-solid fa-vr-cardboard"></i>
+                </div>
+                <h2 class="text-2xl font-bold tracking-wide text-green-300 neon-text-green">開啟 Vision Pro 沉浸瀏覽</h2>
+                <p class="text-xs text-gray-400 mt-1">
+                    由於 Apple 隱私保護限制，我們無需開啟複雜的平面與網格偵測。您只需要在 AVP Safari 啟用最基礎的 XR 功能：
+                </p>
+            </div>
+
+            <div class="space-y-4 text-sm text-green-100">
+                <div class="bg-green-950/40 p-4 rounded-xl border border-green-900/50 space-y-2">
+                    <p class="font-semibold text-green-300">檢查 Safari 實驗功能旗標 (Feature Flags)</p>
+                    <p class="text-xs text-gray-300">
+                        1. 進入 Vision Pro 的 <b>「設定」 (Settings)</b> ➜ <b>「Apps」</b> ➜ <b>「Safari」</b> ➜ 滾動到最底點擊 <b>「進階」 (Advanced)</b>。<br>
+                        2. 點選 <b>「Feature Flags」</b>。<br>
+                        3. <b>確認開啟以下兩項即可：</b>
+                    </p>
+                    <div class="grid grid-cols-2 gap-1 text-xs text-green-300 font-semibold mt-2 text-center">
+                        <div class="neon-text-green">✓ WebXR Device API</div>
+                        <div class="neon-text-green">✓ WebXR Hand Input</div>
+                    </div>
+                </div>
+
+                <div class="bg-green-950/40 p-4 rounded-xl border border-green-900/50">
+                    <p class="font-semibold text-green-300">第二步：進入並體驗空間代碼</p>
+                    <p class="text-xs text-gray-300">
+                        點擊下方「接入」按鈕。當進入後，您的<b>真實房間透視 (Passthrough) 依然保留</b>。與此同時，一個以您為中心的「視線數位掃描雷達」將展開，隨著您的轉頭，格線將掃描周圍的所有空間！
+                    </p>
+                </div>
+            </div>
+
+            <button id="start-explore-btn" class="w-full bg-green-700 hover:bg-green-600 text-green-100 py-3 rounded-xl font-bold text-lg transition duration-300">
+                接入數據層 (2D預覽)
+            </button>
+        </div>
+    </div>
+
+    <!-- 空間通知提示框 (Glitch 風格) -->
+    <div id="toast" class="fixed top-24 left-1/2 transform -translate-x-1/2 glassmorphism rounded-xl px-6 py-3 border border-red-500/40 opacity-0 pointer-events-none transition-all duration-300 z-40 text-sm flex items-center gap-2">
+        <i class="fa-solid fa-terminal text-green-400"></i>
+        <span id="toast-text" class="text-green-300 neon-text-green"></span>
+    </div>
+
+    <!-- 匯入 Three.js 和 WebXR 支援 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+
+    <script>
+        // --- 初始化與全域變數 ---
+        let scene, camera, renderer, controls;
+        let matrixRain, codeRainGeom;
+        let dataCores = [];
+        let glitchIntensity = 0;
+
+        // 革命性：視線空間幾何雷達網格 (Gaze Spatial Radar)
+        let spatialRadarMesh = null; // 動態隨相機轉動與定位的雷達球體/圓柱體
+        let spatialMaterial;         // 視線感測專用 Shader 
+
+        // 互動狀態
+        let raycaster = new THREE.Raycaster();
+        let mouse = new THREE.Vector2();
+        let hoveredObject = null;
+        let selectedObject = null;
+
+        // 空間音效
+        let audioCtx = null;
+        let mainHum = null; // 背景持續低頻音
+
+        // WebXR 會話
+        let xrSession = null;
+        let controllers = [];
+
+        // 駭客任務代碼數據塊 (懸浮於空中的高密度資訊節點)
+        const dataBlockData = [
+            { id: 1, name: "EYE_GAZE_CONTROLLER", color: 0x00f000, freq: 110, pos: [-3, 1.5, -3] },
+            { id: 2, name: "PASSTHROUGH_MIXER", color: 0x00f000, freq: 146.83, pos: [3, 1.2, -2.5] },
+            { id: 3, name: "GEOMETRY_INTERPOLATION", color: 0x00f000, freq: 196.00, pos: [-2.5, 0.8, 3] },
+            { id: 4, name: "MATRIX_CORE_OVERRIDE", color: 0x00f000, freq: 246.94, pos: [2.5, -0.2, 2.5] }
+        ];
+
+        // --- 空間音效引擎 (駭客任務風格) ---
+        function initAudio() {
+            if (!audioCtx) {
+                audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+            }
+            if (audioCtx.state === 'suspended') {
+                audioCtx.resume();
+            }
+            // 持續的矩陣低鳴聲 (Matrix Core Hum)
+            if (!mainHum) {
+                mainHum = audioCtx.createOscillator();
+                mainHum.type = 'sawtooth';
+                mainHum.frequency.setValueAtTime(55, audioCtx.currentTime); // A1 低音
+                
+                // 低通濾波器，讓聲音更悶、更有空間感
+                const filter = audioCtx.createBiquadFilter();
+                filter.type = 'lowpass';
+                filter.frequency.setValueAtTime(150, audioCtx.currentTime);
+
+                const humGain = audioCtx.createGain();
+                humGain.gain.setValueAtTime(0.015, audioCtx.currentTime);
+                
+                mainHum.connect(filter);
+                filter.connect(humGain);
+                humGain.connect(audioCtx.destination);
+                mainHum.start();
+            }
+        }
+
+        // 數據核心點擊音效 (數位突波聲)
+        function playDataChime(frequency, x, y, z) {
+            initAudio();
+            if (!audioCtx) return;
+
+            const osc = audioCtx.createOscillator();
+            const osc2 = audioCtx.createOscillator(); 
+            const gainNode = audioCtx.createGain();
+            const gainNode2 = audioCtx.createGain();
+
+            const panner = audioCtx.createPanner();
+            panner.panningModel = 'HRTF';
+            panner.setPosition(x, y, z);
+
+            osc.connect(gainNode);
+            osc2.connect(gainNode2);
+            gainNode.connect(panner);
+            gainNode2.connect(panner);
+            panner.connect(audioCtx.destination);
+
+            osc.type = 'square';
+            osc.frequency.setValueAtTime(frequency, audioCtx.currentTime);
+            osc.frequency.setTargetAtTime(frequency * 0.1, audioCtx.currentTime, 0.05);
+
+            osc2.type = 'sine';
+            osc2.frequency.setValueAtTime(300, audioCtx.currentTime);
+            osc2.frequency.setTargetAtTime(3000, audioCtx.currentTime, 0.02);
+
+            gainNode.gain.setValueAtTime(0.25, audioCtx.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.15);
+
+            gainNode2.gain.setValueAtTime(0.15, audioCtx.currentTime);
+            gainNode2.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + 0.08);
+
+            osc.start();
+            osc2.start();
+            osc.stop(audioCtx.currentTime + 0.2);
+            osc2.stop(audioCtx.currentTime + 0.1);
+        }
+
+        // --- 建立 3D 場景 ---
+        function init3D() {
+            const canvas = document.getElementById('webgl-canvas');
+            
+            scene = new THREE.Scene();
+            
+            // 預設為純黑，但在 WebXR Immersive-AR 運作時會切換為透明以便透視現實世界
+            scene.background = new THREE.Color(0x000000);
+            scene.fog = new THREE.FogExp2(0x000000, 0.015);
+
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(0, 1.6, 6); // AVP 標準站立視線高度
+
+            // 開啟 alpha: true，才能讓 AVP 的 Passthrough 畫面顯露出來
+            renderer = new THREE.WebGLRenderer({ canvas: canvas, antialias: true, alpha: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.xr.enabled = true;
+
+            // 滑鼠控制
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.maxDistance = 30;
+            controls.target.set(0, 1.6, 0);
+
+            const ambientLight = new THREE.AmbientLight(0x001500, 1.0);
+            scene.add(ambientLight);
+
+            // 1. 初始化「視線空間雷達著色器」(使用動態自定義 Shader)
+            initSpatialShader();
+
+            // 2. 建立「駭客任務代碼雨」 (背景填充粒子)
+            buildMatrixRain();
+
+            // 3. 建立由代碼構成的 4 個互動數據塊
+            buildDataCores();
+
+            // 4. 建立「視線空間雷達感測球」(跟隨相機，隨視角即時掃描重構周圍空氣)
+            buildSpatialRadar();
+
+            // 設定 WebXR 控制器 (AVP 捏合)
+            setupXRInput();
+
+            window.addEventListener('resize', onWindowResize);
+            window.addEventListener('mousemove', onMouseMove);
+            window.addEventListener('click', onDocumentClick);
+            
+            renderer.setAnimationLoop(animate);
+        }
+
+        // --- 核心：視線空間雷達幾何著色器 (將視野所及之處，投影為 3D 流動代碼) ---
+        function initSpatialShader() {
+            spatialMaterial = new THREE.ShaderMaterial({
+                uniforms: {
+                    uTime: { value: 0 },
+                    uColor: { value: new THREE.Color(0x00f000) },
+                    uGlitch: { value: 0.0 },
+                    uCameraPos: { value: new THREE.Vector3(0, 1.6, 0) },
+                    uCameraDir: { value: new THREE.Vector3(0, 0, -1) }
+                },
+                vertexShader: `
+                    varying vec3 vWorldPosition;
+                    varying vec3 vNormal;
+                    varying vec3 vLocalPosition;
+                    void main() {
+                        vec4 worldPosition = modelMatrix * vec4(position, 1.0);
+                        vWorldPosition = worldPosition.xyz;
+                        vLocalPosition = position;
+                        vNormal = normalize(normalMatrix * normal);
+                        gl_Position = projectionMatrix * viewMatrix * worldPosition;
+                    }
+                `,
+                fragmentShader: `
+                    uniform float uTime;
+                    uniform vec3 uColor;
+                    uniform float uGlitch;
+                    uniform vec3 uCameraPos;
+                    uniform vec3 uCameraDir;
+                    varying vec3 vWorldPosition;
+                    varying vec3 vLocalPosition;
+                    varying vec3 vNormal;
+
+                    // 簡易偽隨機生成器
+                    float random(vec2 st) {
+                        return fract(sin(dot(st.xy, vec2(12.9898,78.233))) * 43758.5453123);
+                    }
+
+                    void main() {
+                        // 1. 視線方位計算：計算當前像素相對於相機中心點的夾角
+                        vec3 toPixel = normalize(vWorldPosition - uCameraPos);
+                        float gazeAlignment = dot(toPixel, uCameraDir);
+                        
+                        // 2. 雷達擴散波紋：產生隨時間向外擴散的數位同心圓
+                        float radarSpeed = uTime * 2.5;
+                        float dist = distance(vWorldPosition, uCameraPos);
+                        float radarWave = sin(dist * 1.5 - radarSpeed);
+                        
+                        // 3. 垂直流動代碼瀑布 (世界 Y 軸方向)
+                        float verticalSpeed = uTime * 4.0;
+                        float scanline = sin(vWorldPosition.y * 15.0 + verticalSpeed);
+                        
+                        // 4. 水平與垂直 3D 空間幾何網格 (交織線)
+                        float gridX = sin(vWorldPosition.x * 5.0);
+                        float gridY = sin(vWorldPosition.y * 5.0);
+                        float gridZ = sin(vWorldPosition.z * 5.0);
+                        float spatialGrid = max(max(gridX, gridY), gridZ);
+
+                        // 突波干擾
+                        float noise = random(floor(vWorldPosition.xz * 12.0) + floor(uTime * 15.0));
+                        float glitchFactor = step(0.97 - uGlitch * 0.5, noise);
+
+                        // 雷達核心邏輯：越接近玩家視線中心(Gaze) 的地方，雷達波紋和數位格線越亮，邊緣則逐漸淡出
+                        // 這能模擬出 AVP 隨著您轉頭，像雷達般「即時編譯並解構房間幾何」的科幻視覺效果
+                        float gazeMask = smoothstep(0.4, 0.98, gazeAlignment); // 視角錐形遮罩
+                        
+                        // 合成最終流動圖案強度
+                        float pattern = step(0.96, scanline) * 0.4; // 代碼流
+                        float gridPattern = step(0.98, spatialGrid) * 0.6; // 空間格線
+                        float wavePattern = step(0.97, radarWave) * 0.5; // 雷達波動
+                        
+                        float finalPattern = (pattern + gridPattern + wavePattern) * gazeMask + glitchFactor * 0.2;
+                        
+                        // 如果沒有像素強度，則完全透明 (discard)，露出真實的 AR 房間
+                        if (finalPattern < 0.05) {
+                            discard;
+                        }
+
+                        // 霓虹發光色系
+                        vec3 finalColor = uColor;
+                        if (glitchFactor > 0.8) {
+                            finalColor = vec3(0.7, 1.0, 0.7); // 突波閃爍
+                        }
+                        
+                        // 越遠的雷達訊號越微弱，產生絕佳的景深空間感
+                        float distanceFade = smoothstep(25.0, 3.0, dist);
+                        
+                        gl_FragColor = vec4(finalColor * finalPattern * 2.0, finalPattern * 0.8 * distanceFade);
+                    }
+                `,
+                transparent: true,
+                side: THREE.DoubleSide
+            });
+        }
+
+        // --- 建立「視線雷達感測球」---
+        // 我們建立一個巨大的、包圍相機周圍 15 公尺空間的球體幾何。
+        // Shader 將動態在這個球體上渲染格線，並只顯露「您視線正前方」的數位代碼！
+        function buildSpatialRadar() {
+            const radarGeom = new THREE.SphereGeometry(15, 64, 64);
+            spatialRadarMesh = new THREE.Mesh(radarGeom, spatialMaterial);
+            scene.add(spatialRadarMesh);
+        }
+
+        // --- 建立「駭客任務代碼雨」粒子群 (背景氣氛) ---
+        function buildMatrixRain() {
+            const codeCount = 8000;
+            codeRainGeom = new THREE.BufferGeometry();
+            const positions = new Float32Array(codeCount * 3);
+            const opacities = new Float32Array(codeCount);
+
+            for (let i = 0; i < codeCount; i++) {
+                // 以相機中心為基礎隨機分布
+                positions[i * 3] = (Math.random() - 0.5) * 30;
+                positions[i * 3 + 1] = (Math.random() - 0.5) * 20 + 1.6;
+                positions[i * 3 + 2] = (Math.random() - 0.5) * 30;
+                opacities[i] = Math.random();
+            }
+
+            codeRainGeom.setAttribute('position', new THREE.BufferAttribute(positions, 3));
+            codeRainGeom.setAttribute('opacity', new THREE.BufferAttribute(opacities, 1));
+
+            const codeRainMaterial = new THREE.PointsMaterial({
+                color: 0x00f000,
+                size: 0.1,
+                transparent: true,
+                opacity: 0.5,
+                blending: THREE.AdditiveBlending,
+                sizeAttenuation: true
+            });
+
+            codeRainMaterial.onBeforeCompile = (shader) => {
+                shader.vertexShader = shader.vertexShader.replace(
+                    '#include <common>',
+                    '#include <common>\nattribute float opacity; varying float vOpacity;'
+                ).replace(
+                    '#include <begin_vertex>',
+                    '#include <begin_vertex>\n\tvOpacity = opacity;'
+                );
+                shader.fragmentShader = shader.fragmentShader.replace(
+                    'varying vec3 vColor;',
+                    'varying vec3 vColor; varying float vOpacity;'
+                ).replace(
+                    'gl_FragColor = vec4( color, opacity );',
+                    'gl_FragColor = vec4( color, opacity * vOpacity );'
+                );
+            };
+
+            matrixRain = new THREE.Points(codeRainGeom, codeRainMaterial);
+            scene.add(matrixRain);
+        }
+
+        // --- 建立由代碼構成的 4 個互動數據塊 ---
+        function buildDataCores() {
+            dataBlockData.forEach((data) => {
+                const dataGroup = new THREE.Group();
+                dataGroup.position.set(data.pos[0], data.pos[1], data.pos[2]);
+
+                const geom = new THREE.OctahedronGeometry(0.5, 0);
+                const mat = new THREE.MeshBasicMaterial({
+                    color: data.color,
+                    wireframe: true,
+                    transparent: true,
+                    opacity: 0.7,
+                });
+                const mesh = new THREE.Mesh(geom, mat);
+                mesh.userData = { ...data, isDataCore: true, originalOpacity: 0.7 };
+                dataGroup.add(mesh);
+
+                const ringGeom = new THREE.TorusGeometry(0.4, 0.01, 4, 32);
+                const ringMat = new THREE.MeshBasicMaterial({
+                    color: data.color,
+                    wireframe: true,
+                    transparent: true,
+                    opacity: 0.3
+                });
+                const ring = new THREE.Mesh(ringGeom, ringMat);
+                ring.rotation.x = Math.PI / 2;
+                ring.position.y = -0.6;
+                dataGroup.add(ring);
+
+                scene.add(dataGroup);
+                
+                dataCores.push({
+                    group: dataGroup,
+                    mesh: mesh,
+                    ring: ring,
+                    initialY: data.pos[1],
+                    pulseSpeed: 1.2 + Math.random()
+                });
+            });
+        }
+
+        // --- WebXR Input: AVP Hand/Gaze Pinch ---
+        function setupXRInput() {
+            function onSelectStart(event) {
+                const controller = event.target;
+                
+                const tempMatrix = new THREE.Matrix4();
+                tempMatrix.identity().extractRotation(controller.matrixWorld);
+                
+                const raycasterXR = new THREE.Raycaster();
+                raycasterXR.ray.origin.setFromMatrixPosition(controller.matrixWorld);
+                raycasterXR.ray.direction.set(0, 0, -1).applyMatrix4(tempMatrix);
+
+                const meshes = dataCores.map(c => c.mesh);
+                const intersects = raycasterXR.intersectObjects(meshes);
+
+                if (intersects.length > 0) {
+                    const hitMesh = intersects[0].object;
+                    triggerDataInteraction(hitMesh);
+                }
+            }
+
+            const controller0 = renderer.xr.getController(0);
+            controller0.addEventListener('selectstart', onSelectStart);
+            scene.add(controller0);
+            controllers.push(controller0);
+
+            const controller1 = renderer.xr.getController(1);
+            controller1.addEventListener('selectstart', onSelectStart);
+            scene.add(controller1);
+            controllers.push(controller1);
+        }
+
+        // --- 互動邏輯: 「數據突波與視線干擾」特效 ---
+        function triggerDataInteraction(mesh) {
+            const data = mesh.userData;
+            if (!data) return;
+
+            // 播放突波音效
+            const worldPos = new THREE.Vector3();
+            mesh.getWorldPosition(worldPos);
+            playDataChime(data.freq, worldPos.x, worldPos.y, worldPos.z);
+
+            document.getElementById('target-name').innerText = data.name;
+            showToast(`> SYSTEM OVERRIDE: ${data.name}`);
+
+            // 數據塊突波動畫 (變白)
+            mesh.material.color.setHex(0xffffff);
+            mesh.material.opacity = 1.0;
+            
+            // 觸發全空間的幾何解構突波 (Glitch)
+            glitchIntensity = 0.8;
+            spatialMaterial.uniforms.uGlitch.value = 0.8;
+            scene.fog.color.setHex(0x112511); // 空間霧氣變亮綠
+
+            setTimeout(() => {
+                mesh.material.color.setHex(0x00f000);
+                mesh.material.opacity = mesh.userData.originalOpacity;
+                scene.fog.color.setHex(0x000000);
+            }, 120);
+
+            mesh.rotation.y += Math.PI * 0.5;
+            selectedObject = mesh;
+        }
+
+        // 滑鼠與 2D 射線
+        function onMouseMove(event) {
+            mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+            mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+        }
+
+        function onDocumentClick(event) {
+            if (event.target.tagName !== 'CANVAS') return;
+            initAudio(); 
+            raycaster.setFromCamera(mouse, camera);
+            const meshes = dataCores.map(c => c.mesh);
+            const intersects = raycaster.intersectObjects(meshes);
+            if (intersects.length > 0) {
+                const hitMesh = intersects[0].object;
+                triggerDataInteraction(hitMesh);
+            }
+        }
+
+        function onWindowResize() {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        }
+
+        // --- 主動畫渲染迴圈 (智慧適配視線雷達掃描) ---
+        function animate(time, frame) {
+            const elapsed = time ? time * 0.001 : performance.now() * 0.001;
+
+            // 1. 動態更新雷達 Shader 的空間座標
+            if (spatialMaterial) {
+                spatialMaterial.uniforms.uTime.value = elapsed;
+                
+                // 動態將「相機(使用者頭部)的實時位置與看向的 3D 方向」傳送給著色器
+                const tempCamPos = new THREE.Vector3();
+                const tempCamDir = new THREE.Vector3();
+                
+                camera.getWorldPosition(tempCamPos);
+                camera.getWorldDirection(tempCamDir);
+                
+                spatialMaterial.uniforms.uCameraPos.value.copy(tempCamPos);
+                spatialMaterial.uniforms.uCameraDir.value.copy(tempCamDir);
+
+                // 讓雷達感測幾何球，隨時緊跟著使用者的頭部移動，確保視線格線永遠在您周圍展開
+                if (spatialRadarMesh) {
+                    spatialRadarMesh.position.copy(tempCamPos);
+                }
+
+                // 漸進式衰減突波干擾
+                if (glitchIntensity > 0) {
+                    glitchIntensity *= 0.93;
+                    spatialMaterial.uniforms.uGlitch.value = glitchIntensity;
+                }
+            }
+
+            // 2. 處理 WebXR 實體空間與 AR/VR 背景
+            if (renderer.xr.isPresenting) {
+                const session = renderer.xr.getSession();
+                
+                // AR 透視下，背景設為 null 以顯露 AVP 真實畫面
+                if (session && (session.environmentBlendMode === 'alpha-blend' || session.environmentBlendMode === 'additive')) {
+                    scene.background = null;
+                } else {
+                    scene.background = new THREE.Color(0x000000);
+                }
+            } else {
+                // 2D 網頁預覽模式下恢復黑色背景
+                scene.background = new THREE.Color(0x000000);
+            }
+
+            // 3. 背景代碼雨粒子流動
+            if (matrixRain) {
+                const posArr = matrixRain.geometry.attributes.position.array;
+                const opacityArr = matrixRain.geometry.attributes.opacity.array;
+                const count = matrixRain.geometry.attributes.position.count;
+
+                for (let i = 0; i < count; i++) {
+                    posArr[i * 3 + 1] -= 0.12; 
+                    if (glitchIntensity > 0) {
+                        posArr[i * 3] += (Math.random() - 0.5) * glitchIntensity * 0.3;
+                    }
+                    if (posArr[i * 3 + 1] < -10) {
+                        posArr[i * 3 + 1] = 15;
+                    }
+                    if (Math.random() < 0.01) {
+                        opacityArr[i] = Math.random();
+                    }
+                }
+                matrixRain.geometry.attributes.position.needsUpdate = true;
+                matrixRain.geometry.attributes.opacity.needsUpdate = true;
+                matrixRain.rotation.y = elapsed * 0.003;
+            }
+
+            // 4. 數據代碼核心動畫
+            dataCores.forEach(c => {
+                c.group.position.y = c.initialY + Math.sin(elapsed * c.pulseSpeed * 0.5) * 0.12;
+                c.mesh.rotation.y = elapsed * 0.8;
+                c.mesh.rotation.x = Math.sin(elapsed * 0.4) * 0.1;
+            });
+
+            // 5. 滑鼠懸停偵測 (2D 模式)
+            if (!renderer.xr.isPresenting) {
+                raycaster.setFromCamera(mouse, camera);
+                const meshes = dataCores.map(c => c.mesh);
+                const intersects = raycaster.intersectObjects(meshes);
+
+                if (intersects.length > 0) {
+                    const hitMesh = intersects[0].object;
+                    if (hoveredObject !== hitMesh) {
+                        if (hoveredObject) hoveredObject.material.color.setHex(0x00f000);
+                        hoveredObject = hitMesh;
+                        hoveredObject.material.color.setHex(0xffffff);
+                        document.body.style.cursor = 'pointer';
+                    }
+                } else {
+                    if (hoveredObject) {
+                        hoveredObject.material.color.setHex(0x00f000);
+                        hoveredObject = null;
+                        document.body.style.cursor = 'default';
+                    }
+                }
+                controls.update();
+            }
+
+            // 6. 渲染
+            renderer.render(scene, camera);
+        }
+
+        // --- Toast 通知框 (Glitch 風格) ---
+        function showToast(text) {
+            const toast = document.getElementById('toast');
+            document.getElementById('toast-text').innerText = text;
+            toast.style.opacity = '1';
+            setTimeout(() => {
+                toast.style.opacity = '0';
+            }, 3000);
+        }
+
+        // --- 安全漸進式會話初始化 ---
+        async function initiateXRSession() {
+            const sessionTypes = ['immersive-ar', 'immersive-vr'];
+            
+            // 安全配置：僅要求基礎 AR 透視與手勢（捏合），不再請求受限的網格/平面掃描
+            const featureSets = [
+                {
+                    requiredFeatures: ['local-floor'],
+                    optionalFeatures: ['bounded-floor', 'hand-tracking']
+                },
+                {
+                    requiredFeatures: ['local-floor']
+                },
+                {}
+            ];
+
+            for (const type of sessionTypes) {
+                const isSupported = await navigator.xr.isSessionSupported(type).catch(() => false);
+                if (!isSupported) continue;
+
+                for (const features of featureSets) {
+                    try {
+                        console.log(`正在請求 WebXR (${type})，配置參數:`, features);
+                        const session = await navigator.xr.requestSession(type, features);
+                        return { session, type };
+                    } catch (e) {
+                        console.warn(`會話配置請求失敗 (${type}):`, e);
+                    }
+                }
+            }
+            
+            throw new Error("無法在當前瀏覽器設定中建立 WebXR 沉浸會話。");
+        }
+
+        // --- WebXR 入口管理 (AVP) ---
+        const enterVrBtn = document.getElementById('enter-vr-btn');
+        if (navigator.xr) {
+            navigator.xr.isSessionSupported('immersive-ar').then((supported) => {
+                if (supported) {
+                    enterVrBtn.disabled = false;
+                    enterVrBtn.innerHTML = `<i class="fa-solid fa-glasses text-xl"></i><span>接入「駭客任務」空間代碼層</span>`;
+                } else {
+                    navigator.xr.isSessionSupported('immersive-vr').then((vrSupported) => {
+                        if (vrSupported) {
+                            enterVrBtn.innerHTML = `<i class="fa-solid fa-glasses text-xl"></i><span>接入「駭客任務」空間代碼層</span>`;
+                        } else {
+                            enterVrBtn.innerHTML = `<i class="fa-solid fa-desktop text-xl"></i><span>接入代碼層 (2D環境模擬)</span>`;
+                        }
+                    });
+                }
+            });
+        }
+
+        enterVrBtn.addEventListener('click', () => {
+            initAudio(); // 初始化音訊
+            if (!navigator.xr) {
+                showToast("> 錯誤: 瀏覽器不支援 WebXR。已進入虛擬代碼模擬。");
+                return;
+            }
+            if (xrSession === null) {
+                initiateXRSession().then(({ session, type }) => {
+                    xrSession = session;
+                    renderer.xr.setSession(xrSession);
+                    
+                    enterVrBtn.innerHTML = `<i class="fa-solid fa-power-off text-xl"></i><span>中斷代碼接入</span>`;
+                    document.getElementById('hud-container').classList.add('opacity-30');
+                    
+                    if (type === 'immersive-ar') {
+                        showToast("> 連線成功: 視線空間雷達掃描已啟動！");
+                    } else {
+                        showToast("> 連線成功: 進入 VR 空間代碼層！");
+                    }
+                    
+                    session.addEventListener('end', () => {
+                        xrSession = null;
+                        enterVrBtn.innerHTML = `<i class="fa-solid fa-glasses text-xl"></i><span>接入「駭客任務」空間代碼層</span>`;
+                        document.getElementById('hud-container').classList.remove('opacity-30');
+                        showToast("> 提示: 已斷開矩陣，實體現實重建完成。");
+                    });
+                }).catch((err) => {
+                    console.error("XR Session Error Details: ", err);
+                    showToast("> 錯誤: 瀏覽器設定拒絕了 WebXR 要求。請確認開啟 Safari 實驗性旗標。");
+                });
+            } else {
+                xrSession.end();
+            }
+        });
+
+        // --- UI 指南與彈窗管理 ---
+        const guideModal = document.getElementById('guide-modal');
+        const closeGuideBtn = document.getElementById('close-guide-btn');
+        const startExploreBtn = document.getElementById('start-explore-btn');
+        const guideToggleBtn = document.getElementById('guide-toggle-btn');
+        function hideGuide() {
+            guideModal.classList.add('opacity-0');
+            setTimeout(() => guideModal.style.display = 'none', 300);
+            initAudio();
+        }
+        closeGuideBtn.addEventListener('click', hideGuide);
+        startExploreBtn.addEventListener('click', hideGuide);
+        guideToggleBtn.addEventListener('click', () => {
+            guideModal.style.display = 'flex';
+            setTimeout(() => guideModal.classList.remove('opacity-0'), 50);
+        });
+
+        window.onload = function() { init3D(); };
+    </script>
+</body>
+</html>
