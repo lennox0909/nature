@@ -1,0 +1,899 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+    <!-- Chosen Palette: Slate & Teal Warm Neutral Palette -->
+    <!-- Application Structure Plan: 本應用程式採用「主題式五大模組」架構，以使用者導向設計引導探索：
+         1. 雙軌法制地圖：直觀對比公務員與勞基法醫事人員的工時與休假規範，建立整體法規認知。
+         2. 四週變形工時與護病比：解析核心排班彈性機制與 2027/2028 最新三班護病比法定標準。
+         3. 勞檢爭議與紅線地雷：揭露負時數、隱性加班等四大常見違法樣態與罰則風險。
+         4. 智慧系統架構藍圖：提供系統建置四階段優先順序與 OR-Tools / Drools 三層式資訊架構。
+         5. 雙重限制排班試算器：提供動態護病比試算與 14 天排班合法性即時驗證器，提升實用性與互動感。 -->
+    <!-- Visualization & Content Choices:
+         - 身分工時天花板比較：Chart.js 群組柱狀圖，清晰呈現不同身分的每日工時與每月加班上限。
+         - 三班護病比各級醫院標準：Chart.js 橫向條形圖，利於橫向對比白班、小夜、大夜之護病比差異。
+         - 限制條件重質比重：Chart.js 雷達圖，展示硬限制（法規）與軟限制（人情）在演算法中的權重配置。
+         - 護病比與獎懲試算器：JavaScript 動態計算，即時反饋全月平均護病比與財務罰金/獎勵預估。
+         - 14天排班合規驗證器：互動式按鈕矩陣，即時檢查七休一、輪班間隔與最長連續上班日。
+         - 無 SVG/Mermaid：完全使用 Unicode 符號、Tailwind CSS 與 Chart.js Canvas 實現。 -->
+    <!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>台灣公立醫院合法與人性化排班系統決策平台</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 650px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 320px;
+            max-height: 400px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 360px;
+            }
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased leading-relaxed min-h-screen flex flex-col">
+
+    <!-- Header & Title Area -->
+    <header class="bg-slate-900 text-white border-b border-slate-800 shadow-lg sticky top-0 z-50">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col md:flex-row md:items-center md:justify-between">
+            <div class="flex items-center space-x-3">
+                <span class="text-2xl">&#9878;</span>
+                <div>
+                    <h1 class="text-xl md:text-2xl font-bold tracking-tight text-teal-400">台灣公立醫院合法與人性化排班決策平台</h1>
+                    <p class="text-xs text-slate-400 mt-0.5">公立法制雙軌解析 · 四週變形工時 · 三班護病比 · OR-Tools 智慧演算法規劃</p>
+                </div>
+            </div>
+            <!-- Navigation Tabs -->
+            <nav class="mt-4 md:mt-0 flex flex-wrap gap-1 bg-slate-800 p-1 rounded-lg border border-slate-700">
+                <button onclick="switchTab('tab-legal')" id="btn-tab-legal" class="nav-btn px-3 py-1.5 text-xs md:text-sm font-medium rounded-md transition-colors bg-teal-600 text-white">雙軌法制地圖</button>
+                <button onclick="switchTab('tab-flexible')" id="btn-tab-flexible" class="nav-btn px-3 py-1.5 text-xs md:text-sm font-medium rounded-md transition-colors text-slate-300 hover:text-white hover:bg-slate-700">變形工時與護病比</button>
+                <button onclick="switchTab('tab-risk')" id="btn-tab-risk" class="nav-btn px-3 py-1.5 text-xs md:text-sm font-medium rounded-md transition-colors text-slate-300 hover:text-white hover:bg-slate-700">勞檢風險與爭議</button>
+                <button onclick="switchTab('tab-system')" id="btn-tab-system" class="nav-btn px-3 py-1.5 text-xs md:text-sm font-medium rounded-md transition-colors text-slate-300 hover:text-white hover:bg-slate-700">智慧系統架構</button>
+                <button onclick="switchTab('tab-sim')" id="btn-tab-sim" class="nav-btn px-3 py-1.5 text-xs md:text-sm font-medium rounded-md transition-colors text-slate-300 hover:text-white hover:bg-slate-700">雙重限制試算器</button>
+            </nav>
+        </div>
+    </header>
+
+    <!-- Main Content Container -->
+    <main class="flex-grow max-w-7xl w-full mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-8">
+
+        <!-- ========================================== -->
+        <!-- SECTION 1: 雙軌法制地圖                    -->
+        <!-- ========================================== -->
+        <section id="tab-legal" class="tab-content space-y-6">
+            <!-- Introductory Context Paragraph -->
+            <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                <div class="flex items-center space-x-2 text-teal-700 font-bold text-lg mb-2">
+                    <span>&#128221;</span>
+                    <h2>第一章：公立醫院「雙軌法制」歷史脈絡與釋字第 785 號解釋</h2>
+                </div>
+                <p class="text-sm md:text-base text-slate-600 leading-relaxed">
+                    台灣公立醫院肩負國家公共衛生與偏鄉醫療責任，其內部編制呈現獨特的「一院兩制」現象。具備公務員身分者（依公務人員任用法、醫事人員人事條例進用）適用《公務員服務法》及《公務人員保障法》；非公務員者（契約護理師、多數住院醫師）則適用《勞動基準法》。司法院釋字第 785 號解釋明確將「健康權」提升至憲法保障層次，宣告過去缺乏工時上限與休息頻率的規範違憲，直接促成公務員勤休新制與勞基法專屬規範之對齊。
+                </p>
+            </div>
+
+            <!-- Identity Comparison Interactive Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- 公務員法制 -->
+                <div class="bg-white p-6 rounded-xl border-t-4 border-indigo-600 shadow-sm space-y-4">
+                    <div class="flex justify-between items-center">
+                        <h3 class="font-bold text-slate-800 text-lg flex items-center gap-2">
+                            <span class="text-indigo-600">&#9874;</span> 公務人員法制軌道
+                        </h3>
+                        <span class="px-2.5 py-1 text-xs font-semibold rounded-full bg-indigo-50 text-indigo-700 border border-indigo-200">公法關係</span>
+                    </div>
+                    <p class="text-xs text-slate-500">適用對象：依公務人員任用法、醫事人員人事條例、聘用人員聘用條例進用者。</p>
+                    <ul class="text-xs md:text-sm space-y-2 text-slate-600">
+                        <li class="flex items-start gap-2">
+                            <span class="text-indigo-600 font-bold">&#8226;</span>
+                            <span><strong>每日工時上限：</strong>正常 8 小時，延長加總不得超過 12 小時（輪班醫事人員放寬至 14 小時）。</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-indigo-600 font-bold">&#8226;</span>
+                            <span><strong>每月加班上限：</strong>一般公務員 60 小時，醫療機構輪班人員得放寬至 80 小時。</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-indigo-600 font-bold">&#8226;</span>
+                            <span><strong>輪班休息間隔：</strong>更換班次時，至少應有連續 11 小時之休息時間。</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-indigo-600 font-bold">&#8226;</span>
+                            <span><strong>加班補償機制：</strong>補休至多保留 2 年，期滿未休畢機關強制折算加班費；僅機關無預算時得給予考績獎勵（嘉獎）。</span>
+                        </li>
+                    </ul>
+                </div>
+
+                <!-- 勞動基準法法制 -->
+                <div class="bg-white p-6 rounded-xl border-t-4 border-teal-600 shadow-sm space-y-4">
+                    <div class="flex justify-between items-center">
+                        <h3 class="font-bold text-slate-800 text-lg flex items-center gap-2">
+                            <span class="text-teal-600">&#9877;</span> 勞動基準法法制軌道
+                        </h3>
+                        <span class="px-2.5 py-1 text-xs font-semibold rounded-full bg-teal-50 text-teal-700 border border-teal-200">私法僱傭</span>
+                    </div>
+                    <p class="text-xs text-slate-500">適用對象：契約護理人員、醫事檢驗師、放射師及納入第 84 條之一之住院醫師。</p>
+                    <ul class="text-xs md:text-sm space-y-2 text-slate-600">
+                        <li class="flex items-start gap-2">
+                            <span class="text-teal-600 font-bold">&#8226;</span>
+                            <span><strong>住院醫師工時：</strong>適用 84-1 條，每 4 週總工時絕對上限 320 小時（含加班）。</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-teal-600 font-bold">&#8226;</span>
+                            <span><strong>四週變形工時：</strong>經勞資會議同意，單日正常工時可達 10 小時，每日極限 12 小時。</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-teal-600 font-bold">&#8226;</span>
+                            <span><strong>休息間隔規範：</strong>勞基法第 34 條明定輪班換班間隔至少 11 小時（例外才得縮減為 8 小時）。</span>
+                        </li>
+                        <li class="flex items-start gap-2">
+                            <span class="text-teal-600 font-bold">&#8226;</span>
+                            <span><strong>加班費計算：</strong>前 2 小時按平日每小時工資額加給 1/3，後 2 小時加給 2/3。</span>
+                        </li>
+                    </ul>
+                </div>
+            </div>
+
+            <!-- Visualization: 身分工時天花板比較圖 -->
+            <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between border-b pb-3">
+                    <div>
+                        <h3 class="font-bold text-slate-800 text-base">公立醫院四大身分人員工時與加班天花板對比</h3>
+                        <p class="text-xs text-slate-500">比較不同法規軌道下，每日最大工時上限與每月最大加班上限</p>
+                    </div>
+                    <span class="text-xs bg-slate-100 text-slate-600 px-2.5 py-1 rounded-md mt-2 sm:mt-0">單位：小時 (Hours)</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="dualTrackChart"></canvas>
+                </div>
+                <div class="p-3 bg-slate-50 rounded-lg text-xs text-slate-500">
+                    <span class="font-semibold text-slate-700">&#128161; 說明：</span> 主治醫師（公務員身分）屬責任制，工時依約定辦理；住院醫師（勞基法 84-1）四週總工時上限為 320 小時（折算每月加班極限約 80-90 小時）。
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- SECTION 2: 四週變形工時與護病比            -->
+        <!-- ========================================== -->
+        <section id="tab-flexible" class="tab-content hidden space-y-6">
+            <!-- Introductory Context Paragraph -->
+            <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                <div class="flex items-center space-x-2 text-teal-700 font-bold text-lg mb-2">
+                    <span>&#128197;</span>
+                    <h2>第二章：四週變形工時機制與 2027-2028 三班護病比法定標準</h2>
+                </div>
+                <p class="text-sm md:text-base text-slate-600 leading-relaxed">
+                    醫療保健服務業經指定適用《勞基法》第 30 條之一「四週變形工時」。醫院得於 28 天週期內彈性分配工時與休假日（14 天內至少 2 例假、4 週內共 8 休假日），最長連續工作天數為 12 天。同時，2026 年《醫療法》修法將「三班護病比」納入法律位階，並訂於 2027 年起按醫院層級分階段強制實施，搭配健保達標獎勵與「預防關床條款」，徹底顛覆醫院排班戰略。
+                </p>
+            </div>
+
+            <!-- Flexible Hour Core Rules Grid -->
+            <div class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-2">
+                    <div class="text-xs font-semibold text-teal-600">週期總量管制</div>
+                    <div class="text-2xl font-bold text-slate-800">160 <span class="text-sm font-normal text-slate-500">小時 / 4週</span></div>
+                    <p class="text-xs text-slate-500">4週內正常工作總時數不得超過 160 小時（4週 × 40小時）。</p>
+                </div>
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-2">
+                    <div class="text-xs font-semibold text-teal-600">單日工時挪移 (時變形)</div>
+                    <div class="text-2xl font-bold text-slate-800">10 + 2 <span class="text-sm font-normal text-slate-500">小時上限</span></div>
+                    <p class="text-xs text-slate-500">正常工時每日最高可挪移至 10 小時，含加班單日絕對不得逾 12 小時。</p>
+                </div>
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-2">
+                    <div class="text-xs font-semibold text-teal-600">休假調移極限 (日變形)</div>
+                    <div class="text-2xl font-bold text-slate-800">12 <span class="text-sm font-normal text-slate-500">天連班上限</span></div>
+                    <p class="text-xs text-slate-500">每2週至少2日例假，排班極限為第 3 至第 14 天連續工作 12 天。</p>
+                </div>
+                <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-2">
+                    <div class="text-xs font-semibold text-teal-600">強制輪班休息間隔</div>
+                    <div class="text-2xl font-bold text-slate-800">11 <span class="text-sm font-normal text-slate-500">小時連續休息</span></div>
+                    <p class="text-xs text-slate-500">更換班次時應有連續 11 小時休息，嚴禁常態性縮減為 8 小時（花花班）。</p>
+                </div>
+            </div>
+
+            <!-- Nurse Ratio Table & Chart -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Table -->
+                <div class="lg:col-span-5 bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                    <div>
+                        <h3 class="font-bold text-slate-800 text-base mb-1">三班護病比法定標準與實施日程</h3>
+                        <p class="text-xs text-slate-500 mb-4">依衛福部預告之《醫療機構設置標準》修正草案（採全月平均計算）</p>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-xs text-left text-slate-600">
+                                <thead class="bg-slate-100 text-slate-700 uppercase font-semibold">
+                                    <tr>
+                                        <th class="p-2.5">醫院層級</th>
+                                        <th class="p-2.5">實施日期</th>
+                                        <th class="p-2.5">白班</th>
+                                        <th class="p-2.5">小夜</th>
+                                        <th class="p-2.5">大夜</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100">
+                                    <tr class="hover:bg-slate-50">
+                                        <td class="p-2.5 font-bold text-teal-700">醫學中心</td>
+                                        <td class="p-2.5">2027/05/20</td>
+                                        <td class="p-2.5 font-semibold">1 : 6</td>
+                                        <td class="p-2.5 font-semibold">1 : 9</td>
+                                        <td class="p-2.5 font-semibold">1 : 11</td>
+                                    </tr>
+                                    <tr class="hover:bg-slate-50">
+                                        <td class="p-2.5 font-bold text-indigo-700">區域醫院</td>
+                                        <td class="p-2.5">2028/01/01</td>
+                                        <td class="p-2.5 font-semibold">1 : 7</td>
+                                        <td class="p-2.5 font-semibold">1 : 11</td>
+                                        <td class="p-2.5 font-semibold">1 : 13</td>
+                                    </tr>
+                                    <tr class="hover:bg-slate-50">
+                                        <td class="p-2.5 font-bold text-slate-700">地區/偏鄉</td>
+                                        <td class="p-2.5">2028/05/01</td>
+                                        <td class="p-2.5 font-semibold">1 : 10</td>
+                                        <td class="p-2.5 font-semibold">1 : 13</td>
+                                        <td class="p-2.5 font-semibold">1 : 15</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                    <div class="mt-4 p-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-800">
+                        <strong class="font-bold">&#9888; 裁罰標準：</strong> 醫學中心違規處 100~200 萬元罰鍰；區域醫院處 50~100 萬元；地區醫院處 25~50 萬元。累計 3 次未改正得處 1 個月至 1 年停業。
+                    </div>
+                </div>
+
+                <!-- Visualization: 三班護病比比較圖 -->
+                <div class="lg:col-span-7 bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                    <div class="border-b pb-3">
+                        <h3 class="font-bold text-slate-800 text-base">各級醫院三班護病比照護負擔對比</h3>
+                        <p class="text-xs text-slate-500">數值代表每位護理人員平均照顧之病患人數（數值越低代表照護品質越高等）</p>
+                    </div>
+                    <div class="chart-container">
+                        <canvas id="nurseRatioChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- SECTION 3: 勞檢風險與爭議                 -->
+        <!-- ========================================== -->
+        <section id="tab-risk" class="tab-content hidden space-y-6">
+            <!-- Introductory Context Paragraph -->
+            <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                <div class="flex items-center space-x-2 text-red-600 font-bold text-lg mb-2">
+                    <span>&#9888;</span>
+                    <h2>第三章：排班實務勞檢地雷與加重處罰防禦策略</h2>
+                </div>
+                <p class="text-sm md:text-base text-slate-600 leading-relaxed">
+                    自 2026 年 8 月 1 日起，勞動部修正裁罰原則，針對經衛福部評鑑為「醫學中心」及「區域醫院」之醫療機構增列加重處罰條款，違規罰鍰動輒百萬。公立醫院在排班實務中最常因「負時數轉嫁」、「隱性加班未採認」、「擅自更動公告班表」及「請假不利處分」而遭到重罰。本章拆解四大爭議樣態與合規因應措施。
+                </p>
+            </div>
+
+            <!-- 4 Major Dispute Accordions Grid -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- 爭議 1: 負時數 -->
+                <div class="bg-white p-6 rounded-xl border-l-4 border-red-500 shadow-sm space-y-3">
+                    <div class="flex justify-between items-start">
+                        <h3 class="font-bold text-slate-800 text-base">1. 違法「負時數」與變相扣薪</h3>
+                        <span class="px-2 py-0.5 text-xs font-bold rounded bg-red-100 text-red-700">高風險違法</span>
+                    </div>
+                    <p class="text-xs text-slate-600">
+                        <strong>違法樣態：</strong> 因占床率低或門診量少，醫院單方面通知護理人員提早下班（off 班），並記錄為「負時數」，強迫後續無償加班抵銷或直接扣薪。
+                    </p>
+                    <div class="bg-slate-50 p-3 rounded-lg text-xs space-y-1">
+                        <p class="text-slate-700 font-semibold">&#9878; 法律依據：民法第 487 條 & 勞基法第 22 條</p>
+                        <p class="text-slate-500">受領勞務遲延屬於雇主經營風險，勞工無補服勞務義務，雇主仍須給付全額薪資，嚴禁累積負時數抵銷特休或加班費。</p>
+                    </div>
+                </div>
+
+                <!-- 爭議 2: 隱性加班 -->
+                <div class="bg-white p-6 rounded-xl border-l-4 border-amber-500 shadow-sm space-y-3">
+                    <div class="flex justify-between items-start">
+                        <h3 class="font-bold text-slate-800 text-base">2. 提早點班與交接班隱性加班</h3>
+                        <span class="px-2 py-0.5 text-xs font-bold rounded bg-amber-100 text-amber-800">常見爭議</span>
+                    </div>
+                    <p class="text-xs text-slate-600">
+                        <strong>違法樣態：</strong> 要求護理人員提早 15-30 分鐘點班，或下班後延遲撰寫護理紀錄、參加強制性教育訓練（BLS/ACLS），卻以「未預先填寫加班單」為由不給薪。
+                    </p>
+                    <div class="bg-slate-50 p-3 rounded-lg text-xs space-y-1">
+                        <p class="text-slate-700 font-semibold">&#9878; 法律依據：勞動部與衛福部相關函釋</p>
+                        <p class="text-slate-500">凡處於雇主指揮監督下之勞務提供（含強制交接班與訓練），皆屬工作時間。勞檢會比對 HIS 系統 Log 檔與打卡紀錄。</p>
+                    </div>
+                </div>
+
+                <!-- 爭議 3: 班表任意變更 -->
+                <div class="bg-white p-6 rounded-xl border-l-4 border-indigo-500 shadow-sm space-y-3">
+                    <div class="flex justify-between items-start">
+                        <h3 class="font-bold text-slate-800 text-base">3. 班表無預警任意更動</h3>
+                        <span class="px-2 py-0.5 text-xs font-bold rounded bg-indigo-100 text-indigo-700">管理濫用</span>
+                    </div>
+                    <p class="text-xs text-slate-600">
+                        <strong>違法樣態：</strong> 班表公告後，護理長因臨時人力缺口，未經員工同意逕自更改排班，打亂員工家庭照顧或預修計畫。
+                    </p>
+                    <div class="bg-slate-50 p-3 rounded-lg text-xs space-y-1">
+                        <p class="text-slate-700 font-semibold">&#9878; 法律依據：民法第 148 條誠信原則</p>
+                        <p class="text-slate-500">班表公告即為勞資契約內容，變更需經勞動者同意。頻繁調班引發過勞更觸犯《職業安全衛生法》預防責任。</p>
+                    </div>
+                </div>
+
+                <!-- 爭議 4: 請假不利處分 -->
+                <div class="bg-white p-6 rounded-xl border-l-4 border-teal-500 shadow-sm space-y-3">
+                    <div class="flex justify-between items-start">
+                        <h3 class="font-bold text-slate-800 text-base">4. 依法請假之實質不利處分</h3>
+                        <span class="px-2 py-0.5 text-xs font-bold rounded bg-teal-100 text-teal-800">2026 新制</span>
+                    </div>
+                    <p class="text-xs text-slate-600">
+                        <strong>違法樣態：</strong> 員工依法請普通傷病假，主管於後續排班中刻意排滿大夜班或拒絕其預排休假申請進行報復。
+                    </p>
+                    <div class="bg-slate-50 p-3 rounded-lg text-xs space-y-1">
+                        <p class="text-slate-700 font-semibold">&#9878; 法律依據：勞工請假規則第 9 條之一 (2026/01/01 上路)</p>
+                        <p class="text-slate-500">一年內請普通傷病假未逾 10 日者，雇主不得為不利處分。排班刻意報復將認定為違法實質處分。</p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- SECTION 4: 智慧系統架構與藍圖             -->
+        <!-- ========================================== -->
+        <section id="tab-system" class="tab-content hidden space-y-6">
+            <!-- Introductory Context Paragraph -->
+            <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                <div class="flex items-center space-x-2 text-teal-700 font-bold text-lg mb-2">
+                    <span>&#128187;</span>
+                    <h2>第四章：兼顧合規與人情之智慧排班系統建置藍圖</h2>
+                </div>
+                <p class="text-sm md:text-base text-slate-600 leading-relaxed">
+                    面對「雙軌法制」、「四週變形工時」與「動態三班護病比」的三重衝擊，傳統 Excel 人工排班模式已無法承受合規風險。本報告提出敏捷式四階段建置藍圖，並規劃採用「三層式架構」（HIS 介接層、Drools 動態規則引擎、OR-Tools 組合最佳化求解器），將冰冷的法律硬限制與溫暖的人情軟限制相結合。
+                </p>
+            </div>
+
+            <!-- Priority 1 to 4 Implementation Roadmap -->
+            <div class="space-y-4">
+                <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                    <span>&#128681;</span> 系統功能建置優先順序 (Roadmap)
+                </h3>
+                <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
+                    <!-- P1 -->
+                    <div class="bg-white p-5 rounded-xl border-t-4 border-red-600 shadow-sm space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs font-bold px-2 py-0.5 rounded bg-red-100 text-red-800">優先級 P1</span>
+                            <span class="text-xs font-semibold text-slate-400">基礎防線</span>
+                        </div>
+                        <h4 class="font-bold text-slate-800 text-sm">法規稽核與合規防線</h4>
+                        <ul class="text-xs text-slate-600 space-y-1.5 list-disc pl-4">
+                            <li>公務員/勞基法雙軌規則設定</li>
+                            <li>違法排班即時阻斷機制</li>
+                            <li>HIS 佔床率介接與護病比預警儀表板</li>
+                        </ul>
+                    </div>
+
+                    <!-- P2 -->
+                    <div class="bg-white p-5 rounded-xl border-t-4 border-amber-500 shadow-sm space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs font-bold px-2 py-0.5 rounded bg-amber-100 text-amber-800">優先級 P2</span>
+                            <span class="text-xs font-semibold text-slate-400">人情與滿意度</span>
+                        </div>
+                        <h4 class="font-bold text-slate-800 text-sm">員工自助服務 (ESS)</h4>
+                        <ul class="text-xs text-slate-600 space-y-1.5 list-disc pl-4">
+                            <li>行動端 App 預排休假與班別偏好收集</li>
+                            <li>智慧線上換班（自動運算換班後合規性）</li>
+                            <li>個人化班表與積休帳戶查詢</li>
+                        </ul>
+                    </div>
+
+                    <!-- P3 -->
+                    <div class="bg-white p-5 rounded-xl border-t-4 border-teal-500 shadow-sm space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs font-bold px-2 py-0.5 rounded bg-teal-100 text-teal-800">優先級 P3</span>
+                            <span class="text-xs font-semibold text-slate-400">演算核心</span>
+                        </div>
+                        <h4 class="font-bold text-slate-800 text-sm">自動最佳化排班引擎</h4>
+                        <ul class="text-xs text-slate-600 space-y-1.5 list-disc pl-4">
+                            <li>OR-Tools / CSP 求解器一鍵生成班表</li>
+                            <li>軟限制（偏好、夜班連續度）懲罰值最佳化</li>
+                            <li>甘特圖拖曳微調與衝突警示</li>
+                        </ul>
+                    </div>
+
+                    <!-- P4 -->
+                    <div class="bg-white p-5 rounded-xl border-t-4 border-indigo-500 shadow-sm space-y-3">
+                        <div class="flex justify-between items-center">
+                            <span class="text-xs font-bold px-2 py-0.5 rounded bg-indigo-100 text-indigo-800">優先級 P4</span>
+                            <span class="text-xs font-semibold text-slate-400">行政自動化</span>
+                        </div>
+                        <h4 class="font-bold text-slate-800 text-sm">打卡比對與薪資聯動</h4>
+                        <ul class="text-xs text-slate-600 space-y-1.5 list-disc pl-4">
+                            <li>出勤打卡與班表自動勾稽</li>
+                            <li>公務員補休 2 年折現追蹤帳戶</li>
+                            <li>勞基法加班費加成精算與禁止負時數模組</li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Technical Architecture Blueprint Card -->
+            <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                <h3 class="font-bold text-slate-800 text-base">三層式智慧排班系統技術架構圖 (Three-Tier Architecture)</h3>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
+                    <!-- Layer 1 -->
+                    <div class="p-4 bg-slate-50 border border-slate-200 rounded-lg space-y-2">
+                        <div class="font-bold text-slate-700 flex items-center justify-between">
+                            <span>1. 表現層 (Presentation Layer)</span>
+                            <span class="bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded">UI/UX</span>
+                        </div>
+                        <p class="text-slate-500">護理長 Web 甘特圖儀表板 / 基層醫護行動 App (ESS) / 人資法檢報表系統。</p>
+                    </div>
+                    <!-- Layer 2 -->
+                    <div class="p-4 bg-teal-50 border border-teal-200 rounded-lg space-y-2">
+                        <div class="font-bold text-teal-800 flex items-center justify-between">
+                            <span>2. 業務邏輯與演算層 (Business Logic)</span>
+                            <span class="bg-teal-200 text-teal-800 px-1.5 py-0.5 rounded">Core Engine</span>
+                        </div>
+                        <p class="text-slate-600">Drools 動態法規引擎 + Google OR-Tools 限制滿足求解器微服務。</p>
+                    </div>
+                    <!-- Layer 3 -->
+                    <div class="p-4 bg-indigo-50 border border-indigo-200 rounded-lg space-y-2">
+                        <div class="font-bold text-indigo-800 flex items-center justify-between">
+                            <span>3. 資料介接層 (Data Layer)</span>
+                            <span class="bg-indigo-200 text-indigo-800 px-1.5 py-0.5 rounded">HIS API</span>
+                        </div>
+                        <p class="text-slate-600">HL7 / FHIR API 實時擷取 HIS 占床率；人事主檔 (身分/證照/積休帳戶)。</p>
+                    </div>
+                </div>
+
+                <!-- Radar Chart for Hard vs Soft Constraints -->
+                <div class="mt-6 pt-4 border-t">
+                    <div class="grid grid-cols-1 lg:grid-cols-12 gap-6 items-center">
+                        <div class="lg:col-span-5 space-y-3">
+                            <h4 class="font-bold text-slate-800 text-sm">硬限制 (Hard) 與軟限制 (Soft) 的演算法博弈</h4>
+                            <p class="text-xs text-slate-600 leading-relaxed">
+                                限制滿足問題 (CSP) 演算法將法規與安全設定為<strong>「絕對不可違背之硬限制」</strong>；同時將員工請假偏好、生理時鐘控制（不連續排大夜）、週末輪休公平性與資深資淺搭配 (Senior-Junior Mix) 設定為<strong>「帶有懲罰分數的軟限制」</strong>。求解器目標係在絕對合規前提下，讓總懲罰分數最小化，達到最具溫度的最佳解。
+                            </p>
+                        </div>
+                        <div class="lg:col-span-7">
+                            <div class="chart-container">
+                                <canvas id="constraintRadarChart"></canvas>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- ========================================== -->
+        <!-- SECTION 5: 雙重限制排班試算器 (SIMULATOR) -->
+        <!-- ========================================== -->
+        <section id="tab-sim" class="tab-content hidden space-y-6">
+            <!-- Introductory Context Paragraph -->
+            <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm">
+                <div class="flex items-center space-x-2 text-teal-700 font-bold text-lg mb-2">
+                    <span>&#129520;</span>
+                    <h2>第五章：互動式排班試算工具與合規動態驗證器</h2>
+                </div>
+                <p class="text-sm md:text-base text-slate-600 leading-relaxed">
+                    本區提供兩大實作試算工具：第一為「三班護病比合規與財務影響試算器」，可即時計算病房全月平均護病比並預估獎勵或罰鍰；第二為「14天四週變形工時合規即時檢核器」，供管理者模擬測試排班班表的法律硬限制。
+                </p>
+            </div>
+
+            <!-- Interactive Tool 1: Nurse Ratio Calculator -->
+            <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                <div class="border-b pb-3 flex justify-between items-center">
+                    <div>
+                        <h3 class="font-bold text-slate-800 text-base">工具一：三班護病比與財務影響動態試算器</h3>
+                        <p class="text-xs text-slate-500">依據衛福部「全月平均公式」計算護病比與預估合規狀態</p>
+                    </div>
+                    <span class="text-xs font-semibold px-2.5 py-1 bg-teal-50 text-teal-700 rounded-full border border-teal-200">即時運算</span>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4 bg-slate-50 p-4 rounded-lg">
+                    <!-- Inputs -->
+                    <div class="space-y-1">
+                        <label class="block text-xs font-bold text-slate-700">醫院層級</label>
+                        <select id="calc-level" onchange="runNurseCalc()" class="w-full text-xs p-2 bg-white border border-slate-300 rounded-md focus:ring-2 focus:ring-teal-500">
+                            <option value="med">醫学中心 (2027年實施)</option>
+                            <option value="reg">區域醫院 (2028年實施)</option>
+                            <option value="local">地區醫院 (2028年實施)</option>
+                        </select>
+                    </div>
+                    <div class="space-y-1">
+                        <label class="block text-xs font-bold text-slate-700">急性一般病床數</label>
+                        <input type="number" id="calc-beds" value="50" oninput="runNurseCalc()" class="w-full text-xs p-2 bg-white border border-slate-300 rounded-md focus:ring-2 focus:ring-teal-500">
+                    </div>
+                    <div class="space-y-1">
+                        <label class="block text-xs font-bold text-slate-700">預估月平均占床率 (%)</label>
+                        <input type="number" id="calc-occupancy" value="85" min="1" max="100" oninput="runNurseCalc()" class="w-full text-xs p-2 bg-white border border-slate-300 rounded-md focus:ring-2 focus:ring-teal-500">
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                    <div class="space-y-1">
+                        <label class="block text-xs font-bold text-slate-700">白班平均護理人數 (排班)</label>
+                        <input type="number" id="calc-day-nurses" value="8" min="1" oninput="runNurseCalc()" class="w-full text-xs p-2 border border-slate-300 rounded-md">
+                    </div>
+                    <div class="space-y-1">
+                        <label class="block text-xs font-bold text-slate-700">小夜班平均護理人數</label>
+                        <input type="number" id="calc-eve-nurses" value="5" min="1" oninput="runNurseCalc()" class="w-full text-xs p-2 border border-slate-300 rounded-md">
+                    </div>
+                    <div class="space-y-1">
+                        <label class="block text-xs font-bold text-slate-700">大夜班平均護理人數</label>
+                        <input type="number" id="calc-night-nurses" value="4" min="1" oninput="runNurseCalc()" class="w-full text-xs p-2 border border-slate-300 rounded-md">
+                    </div>
+                </div>
+
+                <!-- Outputs Display Card -->
+                <div id="calc-result-box" class="p-4 rounded-xl border space-y-3 bg-teal-50 border-teal-200">
+                    <div class="flex flex-col md:flex-row justify-between items-start md:items-center border-b border-teal-200 pb-2 gap-2">
+                        <div class="font-bold text-slate-800 text-sm">
+                            試算結果（急性佔床床數：<span id="res-occupied-beds" class="text-teal-700">42.5</span> 床）
+                        </div>
+                        <div id="res-status-badge" class="px-3 py-1 rounded-full text-xs font-bold bg-teal-600 text-white">
+                            &#10004; 完全符合法定標準
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-2 text-center text-xs">
+                        <div class="p-2 bg-white rounded border border-teal-100">
+                            <div class="text-slate-500">白班護病比</div>
+                            <div id="res-ratio-day" class="text-base font-bold text-slate-800">1 : 5.3</div>
+                            <div id="res-limit-day" class="text-[10px] text-slate-400">法定上限 1:6</div>
+                        </div>
+                        <div class="p-2 bg-white rounded border border-teal-100">
+                            <div class="text-slate-500">小夜護病比</div>
+                            <div id="res-ratio-eve" class="text-base font-bold text-slate-800">1 : 8.5</div>
+                            <div id="res-limit-eve" class="text-[10px] text-slate-400">法定上限 1:9</div>
+                        </div>
+                        <div class="p-2 bg-white rounded border border-teal-100">
+                            <div class="text-slate-500">大夜護病比</div>
+                            <div id="res-ratio-night" class="text-base font-bold text-slate-800">1 : 10.6</div>
+                            <div id="res-limit-night" class="text-[10px] text-slate-400">法定上限 1:11</div>
+                        </div>
+                    </div>
+                    <p id="res-financial-note" class="text-xs text-slate-600 italic">
+                        &#128176; 財務預估：符合達標獎勵資格，且無裁罰風險。（未違背預防關床條款）
+                    </p>
+                </div>
+            </div>
+
+            <!-- Interactive Tool 2: 14-Day Schedule Legal Validator -->
+            <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                <div class="border-b pb-3 flex justify-between items-center">
+                    <div>
+                        <h3 class="font-bold text-slate-800 text-base">工具二：14 天四週變形工時班表「硬限制」即時檢核器</h3>
+                        <p class="text-xs text-slate-500">點擊下方日期切換班別（W: 白班, E: 小夜, N: 大夜, OFF: 休息日, L: 例假），模擬驗證七休一與輪班間隔</p>
+                    </div>
+                    <button onclick="resetSchedule()" class="text-xs px-2.5 py-1 bg-slate-100 text-slate-600 hover:bg-slate-200 rounded">重設預設班表</button>
+                </div>
+
+                <!-- 14 Day Grid Buttons -->
+                <div class="grid grid-cols-7 sm:grid-cols-14 gap-1.5 text-center" id="schedule-grid">
+                    <!-- Dynamic JS content generated here -->
+                </div>
+
+                <!-- Rule Check Results List -->
+                <div class="bg-slate-50 p-4 rounded-xl border border-slate-200 space-y-2 text-xs">
+                    <div class="font-bold text-slate-700 mb-1">合規性檢核清單：</div>
+                    <div class="flex items-center gap-2" id="chk-rule1">
+                        <span id="icon-rule1" class="font-bold text-teal-600">&#10004;</span>
+                        <span id="txt-rule1">14 天內例假 (L) 數目：至少需有 2 天例假。</span>
+                    </div>
+                    <div class="flex items-center gap-2" id="chk-rule2">
+                        <span id="icon-rule2" class="font-bold text-teal-600">&#10004;</span>
+                        <span id="txt-rule2">最長連續工作天數：不得超過 12 天。</span>
+                    </div>
+                    <div class="flex items-center gap-2" id="chk-rule3">
+                        <span id="icon-rule3" class="font-bold text-teal-600">&#10004;</span>
+                        <span id="txt-rule3">輪班間隔 11 小時檢核：禁止大夜班 (N) 下班當天接白班 (W) 或小夜 (E) 的花花班。</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-slate-900 text-slate-400 border-t border-slate-800 py-6 text-xs text-center">
+        <div class="max-w-7xl mx-auto px-4 space-y-1">
+            <p>台灣公立醫院醫事人員排班法規與智慧排班系統建置研究報告 · 互動式決策平台</p>
+            <p class="text-slate-500">本系統內容係基於公務員服務法、勞動基準法、釋字第785號及衛福部最新預告草案整理，具體個案請參照主管機關最新函釋。</p>
+        </div>
+    </footer>
+
+    <!-- JavaScript Logic -->
+    <script>
+        // --- Navigation Logic ---
+        function switchTab(tabId) {
+            document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
+            document.getElementById(tabId).classList.remove('hidden');
+
+            document.querySelectorAll('.nav-btn').forEach(btn => {
+                btn.classList.remove('bg-teal-600', 'text-white');
+                btn.classList.add('text-slate-300', 'hover:text-white', 'hover:bg-slate-700');
+            });
+
+            const activeBtn = document.getElementById('btn-' + tabId);
+            activeBtn.classList.add('bg-teal-600', 'text-white');
+            activeBtn.classList.remove('text-slate-300', 'hover:text-white', 'hover:bg-slate-700');
+        }
+
+        // --- Charts Initialization ---
+        let dualTrackChartInstance = null;
+        let nurseRatioChartInstance = null;
+        let constraintRadarChartInstance = null;
+
+        function initCharts() {
+            // Chart 1: Dual Track Comparison
+            const ctx1 = document.getElementById('dualTrackChart').getContext('2d');
+            dualTrackChartInstance = new Chart(ctx1, {
+                type: 'bar',
+                data: {
+                    labels: ['公務員主治醫師', '公務員醫事人員', '勞基法住院醫師', '勞基法契約護理師'],
+                    datasets: [
+                        {
+                            label: '每日工時上限 (含加班/小時)',
+                            data: [12, 14, 16, 12],
+                            backgroundColor: 'rgba(79, 70, 229, 0.7)',
+                            borderColor: 'rgba(79, 70, 229, 1)',
+                            borderWidth: 1
+                        },
+                        {
+                            label: '每月加班天花板 (小時)',
+                            data: [0, 80, 86, 46], // Note: 86h is average derived from 320h 4-week limit
+                            backgroundColor: 'rgba(13, 148, 136, 0.7)',
+                            borderColor: 'rgba(13, 148, 136, 1)',
+                            borderWidth: 1
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': ' + context.raw + ' 小時';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: { beginAtZero: true, grid: { color: '#f1f5f9' } },
+                        x: { grid: { display: false } }
+                    }
+                }
+            });
+
+            // Chart 2: Nurse Ratios Horizontal Bar
+            const ctx2 = document.getElementById('nurseRatioChart').getContext('2d');
+            nurseRatioChartInstance = new Chart(ctx2, {
+                type: 'bar',
+                data: {
+                    labels: ['白班 (Day)', '小夜班 (Evening)', '大夜班 (Night)'],
+                    datasets: [
+                        {
+                            label: '醫學中心 (2027/5)',
+                            data: [6, 9, 11],
+                            backgroundColor: 'rgba(13, 148, 136, 0.8)'
+                        },
+                        {
+                            label: '區域醫院 (2028/1)',
+                            data: [7, 11, 13],
+                            backgroundColor: 'rgba(79, 70, 229, 0.8)'
+                        },
+                        {
+                            label: '地區醫院 (2028/5)',
+                            data: [10, 13, 15],
+                            backgroundColor: 'rgba(100, 116, 139, 0.8)'
+                        }
+                    ]
+                },
+                options: {
+                    indexAxis: 'y',
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { position: 'bottom', labels: { boxWidth: 12, font: { size: 11 } } },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ' 法定上限 1:' + context.raw;
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        x: { beginAtZero: true, title: { display: true, text: '每名護理師照護病患數上限 (1 : N)' } },
+                        y: { grid: { display: false } }
+                    }
+                }
+            });
+
+            // Chart 3: Constraint Weight Radar
+            const ctx3 = document.getElementById('constraintRadarChart').getContext('2d');
+            constraintRadarChartInstance = new Chart(ctx3, {
+                type: 'radar',
+                data: {
+                    labels: [
+                        '法律絕對合規 (Hard)', 
+                        '護病比安全下限 (Hard)', 
+                        '預排休假滿足度 (Soft)', 
+                        '夜班連續疲勞控制 (Soft)', 
+                        '週末休假公平性 (Soft)', 
+                        '資深資淺混編 (Soft)'
+                    ],
+                    datasets: [
+                        {
+                            label: '演算法優化權重比率',
+                            data: [100, 100, 85, 75, 70, 80],
+                            backgroundColor: 'rgba(13, 148, 136, 0.2)',
+                            borderColor: 'rgba(13, 148, 136, 1)',
+                            pointBackgroundColor: 'rgba(13, 148, 136, 1)'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: { display: false }
+                    },
+                    scales: {
+                        r: {
+                            angleLines: { color: '#e2e8f0' },
+                            suggestedMin: 0,
+                            suggestedMax: 100
+                        }
+                    }
+                }
+            });
+        }
+
+        // --- Interactive Tool 1: Nurse Ratio Calculator Logic ---
+        function runNurseCalc() {
+            const level = document.getElementById('calc-level').value;
+            const totalBeds = parseFloat(document.getElementById('calc-beds').value) || 0;
+            const occRate = parseFloat(document.getElementById('calc-occupancy').value) || 0;
+            const dayNurses = parseFloat(document.getElementById('calc-day-nurses').value) || 1;
+            const eveNurses = parseFloat(document.getElementById('calc-eve-nurses').value) || 1;
+            const nightNurses = parseFloat(document.getElementById('calc-night-nurses').value) || 1;
+
+            const occupiedBeds = totalBeds * (occRate / 100);
+            document.getElementById('res-occupied-beds').innerText = occupiedBeds.toFixed(1);
+
+            // Ratio limits table
+            const limits = {
+                med: { day: 6, eve: 9, night: 11, fine: '100萬~200萬元' },
+                reg: { day: 7, eve: 11, night: 13, fine: '50萬~100萬元' },
+                local: { day: 10, eve: 13, night: 15, fine: '25萬~50萬元' }
+            };
+
+            const curLimit = limits[level];
+            const ratioDay = occupiedBeds / dayNurses;
+            const ratioEve = occupiedBeds / eveNurses;
+            const ratioNight = occupiedBeds / nightNurses;
+
+            document.getElementById('res-ratio-day').innerText = '1 : ' + ratioDay.toFixed(1);
+            document.getElementById('res-ratio-eve').innerText = '1 : ' + ratioEve.toFixed(1);
+            document.getElementById('res-ratio-night').innerText = '1 : ' + ratioNight.toFixed(1);
+
+            document.getElementById('res-limit-day').innerText = '法定上限 1:' + curLimit.day;
+            document.getElementById('res-limit-eve').innerText = '法定上限 1:' + curLimit.eve;
+            document.getElementById('res-limit-night').innerText = '法定上限 1:' + curLimit.night;
+
+            const isFailDay = ratioDay > curLimit.day;
+            const isFailEve = ratioEve > curLimit.eve;
+            const isFailNight = ratioNight > curLimit.night;
+
+            const box = document.getElementById('calc-result-box');
+            const badge = document.getElementById('res-status-badge');
+            const note = document.getElementById('res-financial-note');
+
+            if (isFailDay || isFailEve || isFailNight) {
+                box.className = 'p-4 rounded-xl border space-y-3 bg-red-50 border-red-200';
+                badge.className = 'px-3 py-1 rounded-full text-xs font-bold bg-red-600 text-white';
+                badge.innerHTML = '&#10008; 警告：護病比超標違規';
+                note.innerHTML = '<strong class="text-red-700">&#9888; 法律與財務風險：</strong> 違規將處以 <strong>' + curLimit.fine + '</strong> 罰鍰，並失去健保獎勵資格；累計3次未改正得處停業處分！';
+            } else {
+                box.className = 'p-4 rounded-xl border space-y-3 bg-teal-50 border-teal-200';
+                badge.className = 'px-3 py-1 rounded-full text-xs font-bold bg-teal-600 text-white';
+                badge.innerHTML = '&#10004; 完全符合法定標準';
+                note.innerHTML = '&#128176; <strong>財務激勵效益：</strong> 符合作業標準，享有健保加成獎勵（每增加一名護理人力每年補助 12~24 萬元）。';
+            }
+        }
+
+        // --- Interactive Tool 2: 14-Day Schedule Legal Validator Logic ---
+        // Shifts: W (White), E (Evening), N (Night), OFF (Rest), L (Legal Holiday)
+        let scheduleData = ['W', 'W', 'W', 'W', 'W', 'OFF', 'L', 'N', 'N', 'N', 'OFF', 'L', 'W', 'W'];
+
+        const shiftColors = {
+            'W': 'bg-teal-100 text-teal-800 border-teal-300',
+            'E': 'bg-indigo-100 text-indigo-800 border-indigo-300',
+            'N': 'bg-purple-100 text-purple-800 border-purple-300',
+            'OFF': 'bg-slate-100 text-slate-700 border-slate-300',
+            'L': 'bg-emerald-200 text-emerald-900 border-emerald-400 font-bold'
+        };
+
+        const shiftOrder = ['W', 'E', 'N', 'OFF', 'L'];
+
+        function renderScheduleGrid() {
+            const container = document.getElementById('schedule-grid');
+            container.innerHTML = '';
+
+            scheduleData.forEach((shift, idx) => {
+                const btn = document.createElement('button');
+                btn.className = `p-2 rounded border text-xs font-semibold flex flex-col items-center transition-all ${shiftColors[shift]}`;
+                btn.innerHTML = `<span class="text-[10px] text-slate-400">D${idx+1}</span><span>${shift}</span>`;
+                btn.onclick = () => {
+                    const currentIdx = shiftOrder.indexOf(scheduleData[idx]);
+                    const nextIdx = (currentIdx + 1) % shiftOrder.length;
+                    scheduleData[idx] = shiftOrder[nextIdx];
+                    renderScheduleGrid();
+                    validateSchedule();
+                };
+                container.appendChild(btn);
+            });
+        }
+
+        function resetSchedule() {
+            scheduleData = ['W', 'W', 'W', 'W', 'W', 'OFF', 'L', 'N', 'N', 'N', 'OFF', 'L', 'W', 'W'];
+            renderScheduleGrid();
+            validateSchedule();
+        }
+
+        function validateSchedule() {
+            // Rule 1: Legal Holiday Count >= 2
+            const lCount = scheduleData.filter(s => s === 'L').length;
+            const r1Pass = lCount >= 2;
+            document.getElementById('icon-rule1').innerHTML = r1Pass ? '&#10004;' : '&#10008;';
+            document.getElementById('icon-rule1').className = r1Pass ? 'font-bold text-teal-600' : 'font-bold text-red-600';
+            document.getElementById('txt-rule1').innerText = `14 天內例假 (L) 數目：目前 ${lCount} 天 (${r1Pass ? '符合 >= 2天' : '違規！不足 2 天例假'})`;
+
+            // Rule 2: Max Consecutive Working Days <= 12
+            let maxWork = 0;
+            let currentWork = 0;
+            scheduleData.forEach(s => {
+                if (s === 'W' || s === 'E' || s === 'N') {
+                    currentWork++;
+                    if (currentWork > maxWork) maxWork = currentWork;
+                } else {
+                    currentWork = 0;
+                }
+            });
+            const r2Pass = maxWork <= 12;
+            document.getElementById('icon-rule2').innerHTML = r2Pass ? '&#10004;' : '&#10008;';
+            document.getElementById('icon-rule2').className = r2Pass ? 'font-bold text-teal-600' : 'font-bold text-red-600';
+            document.getElementById('txt-rule2').innerText = `最長連續工作天數：目前連續 ${maxWork} 天 (${r2Pass ? '符合 <= 12天' : '違規！超過 12 天極限'})`;
+
+            // Rule 3: Rest Interval 11 Hours Check (Night shift N followed directly by W or E on next day)
+            let hasIntervalViolation = false;
+            for (let i = 0; i < scheduleData.length - 1; i++) {
+                if (scheduleData[i] === 'N' && (scheduleData[i+1] === 'W' || scheduleData[i+1] === 'E')) {
+                    hasIntervalViolation = true;
+                    break;
+                }
+            }
+            const r3Pass = !hasIntervalViolation;
+            document.getElementById('icon-rule3').innerHTML = r3Pass ? '&#10004;' : '&#10008;';
+            document.getElementById('icon-rule3').className = r3Pass ? 'font-bold text-teal-600' : 'font-bold text-red-600';
+            document.getElementById('txt-rule3').innerText = `輪班間隔 11 小時：${r3Pass ? '無花花班違規' : '違規！偵測到大夜班 (N) 隔日直接接白班/小夜，休息時間不足 11 小時'}`;
+        }
+
+        // --- Window Load Event ---
+        window.addEventListener('DOMContentLoaded', () => {
+            initCharts();
+            runNurseCalc();
+            renderScheduleGrid();
+            validateSchedule();
+        });
+    </script>
+</body>
+</html>
