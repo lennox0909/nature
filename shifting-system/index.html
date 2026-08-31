@@ -44,7 +44,7 @@
 
     <!-- Header & Title Area -->
     <header class="bg-slate-900 text-white border-b border-slate-800 shadow-lg sticky top-0 z-50">
-        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-4 flex flex-col md:flex-row md:items-center md:justify-between">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-3 flex flex-col md:flex-row md:items-center md:justify-between gap-3">
             <div class="flex items-center space-x-3">
                 <span class="text-2xl">&#9878;</span>
                 <div>
@@ -52,14 +52,26 @@
                     <p class="text-xs text-slate-400 mt-0.5">公立法制雙軌解析 · 四週變形工時 · 三班護病比 · OR-Tools 智慧演算法規劃</p>
                 </div>
             </div>
-            <!-- Navigation Tabs -->
-            <nav class="mt-4 md:mt-0 flex flex-wrap gap-1 bg-slate-800 p-1 rounded-lg border border-slate-700">
-                <button onclick="switchTab('tab-legal')" id="btn-tab-legal" class="nav-btn px-3 py-1.5 text-xs md:text-sm font-medium rounded-md transition-colors bg-teal-600 text-white">雙軌法制地圖</button>
-                <button onclick="switchTab('tab-flexible')" id="btn-tab-flexible" class="nav-btn px-3 py-1.5 text-xs md:text-sm font-medium rounded-md transition-colors text-slate-300 hover:text-white hover:bg-slate-700">變形工時與護病比</button>
-                <button onclick="switchTab('tab-risk')" id="btn-tab-risk" class="nav-btn px-3 py-1.5 text-xs md:text-sm font-medium rounded-md transition-colors text-slate-300 hover:text-white hover:bg-slate-700">勞檢風險與爭議</button>
-                <button onclick="switchTab('tab-system')" id="btn-tab-system" class="nav-btn px-3 py-1.5 text-xs md:text-sm font-medium rounded-md transition-colors text-slate-300 hover:text-white hover:bg-slate-700">智慧系統架構</button>
-                <button onclick="switchTab('tab-sim')" id="btn-tab-sim" class="nav-btn px-3 py-1.5 text-xs md:text-sm font-medium rounded-md transition-colors text-slate-300 hover:text-white hover:bg-slate-700">雙重限制試算器</button>
-            </nav>
+
+            <div class="flex flex-wrap items-center gap-3">
+                <!-- Font Size Accessibility Controls -->
+                <div class="flex items-center bg-slate-800 border border-slate-700 rounded-lg p-1 text-xs space-x-1" title="字體大小調整">
+                    <span class="text-slate-400 px-1 font-medium select-none">字體:</span>
+                    <button onclick="adjustFontSize(-1)" class="px-2 py-1 bg-slate-700 hover:bg-slate-600 active:bg-slate-500 rounded text-slate-200 font-bold transition-colors" title="縮小字體">A-</button>
+                    <button onclick="resetFontSize()" class="px-2 py-1 bg-slate-700 hover:bg-slate-600 active:bg-slate-500 rounded text-slate-200 font-bold transition-colors" title="預設字體">A</button>
+                    <button onclick="adjustFontSize(1)" class="px-2 py-1 bg-slate-700 hover:bg-slate-600 active:bg-slate-500 rounded text-slate-200 font-bold transition-colors" title="放大字體">A+</button>
+                    <span id="font-size-display" class="text-teal-400 font-mono px-1 select-none">100%</span>
+                </div>
+
+                <!-- Navigation Tabs -->
+                <nav class="flex flex-wrap gap-1 bg-slate-800 p-1 rounded-lg border border-slate-700">
+                    <button onclick="switchTab('tab-legal')" id="btn-tab-legal" class="nav-btn px-3 py-1.5 text-xs md:text-sm font-medium rounded-md transition-colors bg-teal-600 text-white">雙軌法制地圖</button>
+                    <button onclick="switchTab('tab-flexible')" id="btn-tab-flexible" class="nav-btn px-3 py-1.5 text-xs md:text-sm font-medium rounded-md transition-colors text-slate-300 hover:text-white hover:bg-slate-700">變形工時與護病比</button>
+                    <button onclick="switchTab('tab-risk')" id="btn-tab-risk" class="nav-btn px-3 py-1.5 text-xs md:text-sm font-medium rounded-md transition-colors text-slate-300 hover:text-white hover:bg-slate-700">勞檢風險與爭議</button>
+                    <button onclick="switchTab('tab-system')" id="btn-tab-system" class="nav-btn px-3 py-1.5 text-xs md:text-sm font-medium rounded-md transition-colors text-slate-300 hover:text-white hover:bg-slate-700">智慧系統架構</button>
+                    <button onclick="switchTab('tab-sim')" id="btn-tab-sim" class="nav-btn px-3 py-1.5 text-xs md:text-sm font-medium rounded-md transition-colors text-slate-300 hover:text-white hover:bg-slate-700">雙重限制試算器</button>
+                </nav>
+            </div>
         </div>
     </header>
 
@@ -252,7 +264,7 @@
                 <div class="lg:col-span-7 bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
                     <div class="border-b pb-3">
                         <h3 class="font-bold text-slate-800 text-base">各級醫院三班護病比照護負擔對比</h3>
-                        <p class="text-xs text-slate-500">數值代表每位護理人員平均照顧之病患人數（數值越低代表照護品質越高等）</p>
+                        <p class="text-xs text-slate-500">數值代表每位護理人員平均照顧之病患人數（數值越低代表照護品質越高）</p>
                     </div>
                     <div class="chart-container">
                         <canvas id="nurseRatioChart"></canvas>
@@ -499,7 +511,7 @@
                     <div class="space-y-1">
                         <label class="block text-xs font-bold text-slate-700">醫院層級</label>
                         <select id="calc-level" onchange="runNurseCalc()" class="w-full text-xs p-2 bg-white border border-slate-300 rounded-md focus:ring-2 focus:ring-teal-500">
-                            <option value="med">醫学中心 (2027年實施)</option>
+                            <option value="med">醫學中心 (2027年實施)</option>
                             <option value="reg">區域醫院 (2028年實施)</option>
                             <option value="local">地區醫院 (2028年實施)</option>
                         </select>
@@ -608,6 +620,39 @@
 
     <!-- JavaScript Logic -->
     <script>
+        // --- Font Size Accessibility Controls with localStorage ---
+        let currentFontSize = 16; // default font size 16px (100%)
+
+        function initFontSize() {
+            const savedSize = localStorage.getItem('app_font_size');
+            if (savedSize) {
+                currentFontSize = parseInt(savedSize, 10);
+            } else {
+                currentFontSize = 16;
+            }
+            applyFontSize(currentFontSize);
+        }
+
+        function adjustFontSize(delta) {
+            currentFontSize = Math.min(22, Math.max(13, currentFontSize + delta));
+            applyFontSize(currentFontSize);
+            localStorage.setItem('app_font_size', currentFontSize);
+        }
+
+        function resetFontSize() {
+            currentFontSize = 16;
+            applyFontSize(currentFontSize);
+            localStorage.setItem('app_font_size', currentFontSize);
+        }
+
+        function applyFontSize(size) {
+            document.documentElement.style.fontSize = size + 'px';
+            const displayEl = document.getElementById('font-size-display');
+            if (displayEl) {
+                displayEl.innerText = Math.round((size / 16) * 100) + '%';
+            }
+        }
+
         // --- Navigation Logic ---
         function switchTab(tabId) {
             document.querySelectorAll('.tab-content').forEach(el => el.classList.add('hidden'));
@@ -732,7 +777,7 @@
                     ],
                     datasets: [
                         {
-                            label: '演算法優化權重比率',
+                            label: '演算法最佳化權重比率',
                             data: [100, 100, 85, 75, 70, 80],
                             backgroundColor: 'rgba(13, 148, 136, 0.2)',
                             borderColor: 'rgba(13, 148, 136, 1)',
@@ -889,6 +934,7 @@
 
         // --- Window Load Event ---
         window.addEventListener('DOMContentLoaded', () => {
+            initFontSize();
             initCharts();
             runNurseCalc();
             renderScheduleGrid();
