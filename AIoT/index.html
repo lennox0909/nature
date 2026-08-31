@@ -1,0 +1,1009 @@
+<!DOCTYPE html>
+<html lang="zh-TW" class="scroll-smooth">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Matter 協定深度技術架構與跨平台整合互動指南</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Chart.js CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: {
+                        brand: {
+                            50: '#f0f7ff',
+                            100: '#e0effe',
+                            500: '#3b82f6',
+                            600: '#2563eb',
+                            700: '#1d4ed8',
+                            800: '#1e40af',
+                            900: '#1e3a8a',
+                        },
+                        slate: {
+                            850: '#152033',
+                        }
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        .chart-container {
+            position: relative;
+            width: 100%;
+            max-width: 650px;
+            margin-left: auto;
+            margin-right: auto;
+            height: 320px;
+            max-height: 380px;
+        }
+        @media (min-width: 768px) {
+            .chart-container {
+                height: 350px;
+            }
+        }
+        /* Custom scrollbar */
+        ::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        ::-webkit-scrollbar-track {
+            background: #f1f5f9;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 4px;
+        }
+        ::-webkit-scrollbar-thumb:hover {
+            background: #94a3b8;
+        }
+    </style>
+</head>
+<body class="bg-slate-50 text-slate-800 font-sans antialiased leading-relaxed">
+
+<!-- Chosen Palette: Warm Neutral Slate with Indigo/Blue Primary Accent & Emerald/Amber Secondary Indicators -->
+<!-- Application Structure Plan: 
+  本應用程式專為物聯網硬體工程師、系統整合商與網通架構師設計，將原本密集的報告文字轉化為六大模組化互動區塊：
+  1. 系統概覽與導覽列：動態統計與快速錨點導覽。
+  2. 核心架構與資料模型 (Data Model): 使用動態樹狀圖與 Multi-Admin 獨立 Fabric 模擬器，展示 Node/Endpoint/Cluster/Attribute/Command 運作。
+  3. 網路拓樸與效能 (Network Topology): 整合 Chart.js 展示 Thread vs Zigbee 在不同負載下的延遲與擴展性比較，並附 IPv6/mDNS 網路診斷檢核表。
+  4. 軟硬體需求動態估算器 (Hardware Estimator): 提供即時計算器，使用者勾選功能（如雙分區 OTA, PSRAM, Multi-Admin 數）後動態估算 Flash/RAM 需求，並搭配晶片選型對比表。
+  5. 零信任安全與平台整合 (Security & Commissioning): 互動示範 PASE (BLE) -> CASE (IP) 配網，以及增強型配網視窗 (ECW) 跨平台分享程序。
+  6. 橋接與版本演進時間軸 (Bridge & Version Timeline): 包含舊設備轉換機制與 1.0 至 1.6 版本功能演進篩選器。
+  這種結構設計使用者能從觀念抽象化到具體硬體選型、配網除錯，層層深入，大幅提升研讀效率。
+-->
+<!-- Visualization & Content Choices: 
+  - 核心架構: HTML/CSS 樹狀展開結構 + JS 狀態模擬，展示 Multi-Admin 雙網域運作 (無 SVG)。
+  - 網路效能: Chart.js 折線圖/柱狀圖 (Canvas) 展示多躍點併發傳輸下的反應延遲 (Sub-second vs High Latency)。
+  - 硬體記憶體分配: Dynamic Progress Bar + Chart.js 堆疊圖 (Canvas) 展示 Flash/RAM 在不同韌體配置下的使用比例。
+  - 平台整合 ECW 流程: 互動 Step-by-Step 步驟切換器。
+  - 版本演進: 分頁卡片與分類 Tag 篩選。
+  - 圖表與視覺元素均使用 Canvas (Chart.js) 與 HTML/Tailwind CSS/Unicode 實作。
+-->
+<!-- CONFIRMATION: NO SVG graphics used. NO Mermaid JS used. -->
+
+    <!-- Header Navigation -->
+    <header class="sticky top-0 z-50 bg-white/90 backdrop-blur-md border-b border-slate-200 shadow-sm">
+        <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 h-16 flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <span class="text-2xl font-black text-indigo-600 tracking-tight">Matter<span class="text-slate-700 font-light text-lg">.Hub</span></span>
+                <span class="hidden sm:inline-block px-2.5 py-0.5 text-xs font-semibold bg-indigo-100 text-indigo-800 rounded-full">v1.0 - v1.6 全解析</span>
+            </div>
+            
+            <nav class="hidden md:flex space-x-6 text-sm font-medium text-slate-600">
+                <a href="#data-model" class="hover:text-indigo-600 transition-colors">資料模型</a>
+                <a href="#network" class="hover:text-indigo-600 transition-colors">網路拓樸</a>
+                <a href="#hardware" class="hover:text-indigo-600 transition-colors">軟硬體選型</a>
+                <a href="#security" class="hover:text-indigo-600 transition-colors">安全配網</a>
+                <a href="#platforms" class="hover:text-indigo-600 transition-colors">平台整合</a>
+                <a href="#timeline" class="hover:text-indigo-600 transition-colors">版本演進</a>
+            </nav>
+
+            <div class="flex items-center space-x-2">
+                <a href="#estimator" class="px-3.5 py-1.5 text-xs font-semibold bg-indigo-600 text-white rounded-lg hover:bg-indigo-700 shadow-sm transition-all">
+                    🧮 資源估算工具
+                </a>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8 space-y-12">
+
+        <!-- Executive Summary Banner -->
+        <section class="bg-gradient-to-r from-slate-900 via-indigo-950 to-slate-900 rounded-2xl p-6 sm:p-10 text-white shadow-xl">
+            <div class="max-w-3xl space-y-4">
+                <div class="inline-flex items-center space-x-2 px-3 py-1 bg-indigo-500/20 border border-indigo-400/30 rounded-full text-indigo-300 text-xs font-semibold">
+                    <span>💡 CSA 規範全景圖導覽</span>
+                </div>
+                <h1 class="text-3xl sm:text-4xl font-extrabold tracking-tight">物聯網 Matter 協定：技術架構與跨平台整合研析</h1>
+                <p class="text-slate-300 text-base sm:text-lg leading-relaxed">
+                    Matter 建立於 IPv6 之上的應用層標準，徹底破解智慧家庭生態系的碎片化難題。本互動式指南為工程師與系統整合商提供完整技術細節——從 Core Data Model、Thread/Wi-Fi 網路拓樸、硬體 Flash/RAM 實務要求，到 Multi-Admin 多平台無縫對接機制。
+                </p>
+                <div class="grid grid-cols-2 sm:grid-cols-4 gap-4 pt-4 border-t border-slate-800 text-center">
+                    <div class="bg-white/5 p-3 rounded-lg backdrop-blur">
+                        <div class="text-2xl font-bold text-indigo-400">IPv6</div>
+                        <div class="text-xs text-slate-400">原生網絡層基礎</div>
+                    </div>
+                    <div class="bg-white/5 p-3 rounded-lg backdrop-blur">
+                        <div class="text-2xl font-bold text-emerald-400">Multi-Admin</div>
+                        <div class="text-xs text-slate-400">多控制端同時平行監控</div>
+                    </div>
+                    <div class="bg-white/5 p-3 rounded-lg backdrop-blur">
+                        <div class="text-2xl font-bold text-amber-400">2~4 MB</div>
+                        <div class="text-xs text-slate-400">實務 Flash 建議容量</div>
+                    </div>
+                    <div class="bg-white/5 p-3 rounded-lg backdrop-blur">
+                        <div class="text-2xl font-bold text-cyan-400">v1.6</div>
+                        <div class="text-xs text-slate-400">支援最新 Joint Fabric/NFC</div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 1: CORE DATA MODEL -->
+        <section id="data-model" class="space-y-6">
+            <div class="border-b border-slate-200 pb-4">
+                <h2 class="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                    <span class="text-indigo-600">01.</span> 核心架構與資料模型 (Data Model)
+                </h2>
+                <p class="text-slate-600 mt-1">
+                    Matter 拋棄傳統廠商自訂結構，定義嚴謹的抽象層模型。本區塊協助您了解 Node、Endpoint、Cluster 與 Attribute 的階層關係，以及關鍵的 Multi-Admin 運作邏輯。
+                </p>
+            </div>
+
+            <!-- Dynamic Data Model Explorer Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Interactive Tree Explorer -->
+                <div class="lg:col-span-7 bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                    <h3 class="text-lg font-bold text-slate-800 flex items-center justify-between">
+                        <span>🌳 階層式資料模型探索器</span>
+                        <span class="text-xs font-normal text-slate-500">點擊元件查看詳細資訊</span>
+                    </h3>
+
+                    <div class="space-y-3 font-mono text-sm">
+                        <!-- Node Box -->
+                        <div class="p-3 bg-indigo-50 border border-indigo-200 rounded-lg">
+                            <div class="flex items-center justify-between cursor-pointer" onclick="toggleDM('node-info')">
+                                <span class="font-bold text-indigo-900">📦 Node (節點)</span>
+                                <span class="text-xs text-indigo-700 font-sans bg-indigo-100 px-2 py-0.5 rounded">Operational Node ID</span>
+                            </div>
+                            <div id="node-info" class="mt-2 text-xs text-indigo-950 font-sans bg-white p-2.5 rounded border border-indigo-100 space-y-1">
+                                <p><strong>實體設備執行實例：</strong>代表網絡上可單獨尋址的設備。可在多個 Fabric 中同時獲得不同 NOC 憑證。</p>
+                            </div>
+
+                            <!-- Sub Endpoint 0 -->
+                            <div class="ml-4 mt-3 space-y-2">
+                                <div class="p-2.5 bg-slate-100 border border-slate-300 rounded cursor-pointer hover:bg-slate-200 transition-colors" onclick="toggleDM('ep0-info')">
+                                    <div class="flex items-center justify-between">
+                                        <span class="font-semibold text-slate-800">🔹 Endpoint 0 (強制保留區)</span>
+                                        <span class="text-[10px] bg-slate-200 text-slate-700 px-1.5 py-0.5 rounded">Utility Clusters</span>
+                                    </div>
+                                    <div id="ep0-info" class="hidden mt-2 text-xs font-sans text-slate-600 bg-white p-2 rounded border border-slate-200">
+                                        處理核心維運功能：包含 Descriptor、Basic Information、Access Control、Network Commissioning 與 OTA 韌體更新。
+                                    </div>
+                                </div>
+
+                                <!-- Sub Endpoint 1 -->
+                                <div class="p-2.5 bg-blue-50 border border-blue-200 rounded">
+                                    <div class="flex items-center justify-between cursor-pointer" onclick="toggleDM('ep1-info')">
+                                        <span class="font-semibold text-blue-900">🔹 Endpoint 1 (物理功能 1: 門鎖)</span>
+                                        <span class="text-[10px] bg-blue-200 text-blue-800 px-1.5 py-0.5 rounded">Device Type: Door Lock</span>
+                                    </div>
+                                    <div id="ep1-info" class="mt-2 text-xs font-sans text-blue-900 bg-white p-2 rounded border border-blue-100">
+                                        向網絡暴露實體設備的第一項功能（如鎖舌控制）。
+                                    </div>
+
+                                    <!-- Clusters -->
+                                    <div class="ml-4 mt-2 space-y-1.5">
+                                        <div class="p-2 bg-emerald-50 border border-emerald-200 rounded cursor-pointer hover:bg-emerald-100" onclick="selectCluster('lock')">
+                                            <div class="flex items-center justify-between text-xs font-bold text-emerald-900">
+                                                <span>⚙️ Cluster: Door Lock Server (0x0101)</span>
+                                                <span class="text-[10px] text-emerald-700 font-normal"> Server Role</span>
+                                            </div>
+                                        </div>
+                                        <div class="p-2 bg-amber-50 border border-amber-200 rounded cursor-pointer hover:bg-amber-100" onclick="selectCluster('power')">
+                                            <div class="flex items-center justify-between text-xs font-bold text-amber-900">
+                                                <span>⚙️ Cluster: Power Source (0x002F)</span>
+                                                <span class="text-[10px] text-amber-700 font-normal">Battery Sensor</span>
+                                            </div>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Cluster Inspector Panel -->
+                <div class="lg:col-span-5 bg-white p-6 rounded-xl border border-slate-200 shadow-sm flex flex-col justify-between">
+                    <div>
+                        <h3 class="text-lg font-bold text-slate-800 mb-3 flex items-center gap-2">
+                            <span>🔍 叢集細節檢視器</span>
+                        </h3>
+                        <div id="cluster-details" class="space-y-4 text-sm text-slate-600">
+                            <div class="p-4 bg-slate-50 rounded-lg border border-slate-200">
+                                <h4 id="cd-title" class="font-bold text-slate-900 text-base">請點選左側叢集項目</h4>
+                                <p id="cd-desc" class="text-xs text-slate-500 mt-1">選擇 Door Lock Server 或 Power Source 以查看其屬性 (Attributes)、命令 (Commands) 與事件 (Events) 定義。</p>
+                            </div>
+
+                            <div id="cd-content" class="space-y-3 hidden">
+                                <div>
+                                    <span class="text-xs font-bold uppercase text-indigo-600 tracking-wider">屬性 (Attributes - 單一真相來源)</span>
+                                    <ul id="cd-attrs" class="mt-1 space-y-1 text-xs font-mono bg-slate-100 p-2.5 rounded"></ul>
+                                </div>
+                                <div>
+                                    <span class="text-xs font-bold uppercase text-emerald-600 tracking-wider">觸發命令 (Commands)</span>
+                                    <ul id="cd-cmds" class="mt-1 space-y-1 text-xs font-mono bg-slate-100 p-2.5 rounded"></ul>
+                                </div>
+                                <div>
+                                    <span class="text-xs font-bold uppercase text-amber-600 tracking-wider">互動模式 (Interaction Model)</span>
+                                    <div id="cd-im" class="mt-1 text-xs bg-slate-100 p-2.5 rounded"></div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Multi-Admin Interactive Widget -->
+                    <div class="mt-6 pt-4 border-t border-slate-200">
+                        <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider mb-2">⚡ Multi-Admin 多架構網域 (Fabric) 模擬器</h4>
+                        <div class="p-3 bg-slate-900 text-slate-100 rounded-lg text-xs space-y-2">
+                            <div class="flex items-center justify-between">
+                                <span>單一智慧門鎖 Node</span>
+                                <span class="text-emerald-400 font-mono">狀態: Locked</span>
+                            </div>
+                            <div class="grid grid-cols-2 gap-2 pt-2">
+                                <button onclick="toggleFabric('apple')" id="btn-apple" class="p-2 bg-indigo-600 hover:bg-indigo-700 text-white rounded text-center transition-all">
+                                    Apple Home (Fabric 1)
+                                    <div class="text-[10px] text-indigo-200">NOC: Verified</div>
+                                </button>
+                                <button onclick="toggleFabric('google')" id="btn-google" class="p-2 bg-slate-700 hover:bg-slate-600 text-white rounded text-center transition-all">
+                                    Google Home (Fabric 2)
+                                    <div class="text-[10px] text-slate-300">NOC: Verified</div>
+                                </button>
+                            </div>
+                            <p id="fabric-status" class="text-[11px] text-slate-400 font-sans pt-1">
+                                提示：即使 Apple 與 Google 屬於獨立的 Fabric（具備獨立的 ACL 清單與安全金鑰），兩者皆讀取同一個物理鎖舌狀態（Attribute Single Source of Truth）。
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 2: NETWORK ARCHITECTURE -->
+        <section id="network" class="space-y-6">
+            <div class="border-b border-slate-200 pb-4">
+                <h2 class="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                    <span class="text-indigo-600">02.</span> 網路通訊架構與網通特殊需求
+                </h2>
+                <p class="text-slate-600 mt-1">
+                    Matter 採用完全透明的 IPv6 端到端傳輸，不需傳統專有閘道進行協定轉換。了解 Thread Mesh、Wi-Fi 高頻寬與 mDNS 多播 (Multicast) 的網通關鍵考量。
+                </p>
+            </div>
+
+            <!-- Network Comparison & Performance -->
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Chart Container -->
+                <div class="lg:col-span-7 bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                    <div class="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+                        <h3 class="text-lg font-bold text-slate-800">📊 Thread vs Zigbee 併發傳輸延遲比較</h3>
+                        <div class="text-xs text-slate-500">單位：毫秒 (ms) / 多躍點 Multi-hop</div>
+                    </div>
+                    <p class="text-xs text-slate-600">
+                        學術研究顯示：Zigbee 在小規模單一點對點具備微幅優勢，但 Matter over Thread 在大規模節點併發（如同時發動全屋 30 盞燈調光）時，憑藉去中心化 IPv6 路由展現出次秒級（Sub-second）且極穩定的延遲表現。
+                    </p>
+                    
+                    <div class="chart-container">
+                        <canvas id="latencyChart"></canvas>
+                    </div>
+                </div>
+
+                <!-- Network Requirements & Diagnostic Checklist -->
+                <div class="lg:col-span-5 bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                    <h3 class="text-lg font-bold text-slate-800 flex items-center gap-2">
+                        <span>🛠️ 路由器與網通架構檢核清單</span>
+                    </h3>
+                    <p class="text-xs text-slate-600">
+                        實務中高達 80% 配網失敗或「無法連線」問題起源於家庭網路層對 IPv6 多播 (Multicast) 的攔截。
+                    </p>
+
+                    <div class="space-y-3 text-xs">
+                        <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-1.5">
+                            <div class="font-bold text-slate-800 flex items-center justify-between">
+                                <span>1. IPv6 Multicast & mDNS / DNS-SD</span>
+                                <span class="text-indigo-600 font-mono">Port 5540</span>
+                            </div>
+                            <p class="text-slate-600">
+                                必須開啟路由器 IPv6 前綴下發，並關閉過度嚴格的 IGMP/MLD Snooping。若是劃分 VLAN 的 Prosumer 環境，需配置 mDNS Reflector (如 Avahi)。
+                            </p>
+                        </div>
+
+                        <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-1.5">
+                            <div class="font-bold text-slate-800 flex items-center justify-between">
+                                <span>2. Thread 邊界路由器 (TBR) 整合</span>
+                                <span class="text-emerald-600 font-mono">Layer 3 IPv6 Bridge</span>
+                            </div>
+                            <p class="text-slate-600">
+                                TBR（如 Apple HomePod 或 Google Nest Hub）僅進行網路層封包路由，無須應用層轉碼。Matter 1.4+ 規範了 HRAP 路由器整合標準。
+                            </p>
+                        </div>
+
+                        <div class="p-3 bg-slate-50 border border-slate-200 rounded-lg space-y-1.5">
+                            <div class="font-bold text-slate-800 flex items-center justify-between">
+                                <span>3. 藍牙 (Bluetooth LE) 角色定位</span>
+                                <span class="text-amber-600 font-mono">僅用於 Commissioning</span>
+                            </div>
+                            <p class="text-slate-600">
+                                BLE 僅在出廠配網階段發揮作用（PASE 握手）。一旦成功加入 Wi-Fi 或 Thread 網路，BLE 無線電即自動關閉。
+                            </p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 3: HARDWARE & MCU SPEC ESTIMATOR -->
+        <section id="hardware" class="space-y-6">
+            <div class="border-b border-slate-200 pb-4">
+                <h2 class="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                    <span class="text-indigo-600">03.</span> 邊緣硬體需求與動態估算器
+                </h2>
+                <p class="text-slate-600 mt-1">
+                    Matter 龐大的 IPv6 協定堆疊與加密憑證，對邊緣 MCU 的 Flash ROM 與 SRAM 提出了極高考驗。傳統 128KB 級別 MCU 已無法承受商業化需求。
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- HARDWARE ESTIMATOR TOOL -->
+                <div id="estimator" class="lg:col-span-6 bg-slate-900 text-slate-100 p-6 rounded-xl shadow-md space-y-5">
+                    <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+                        <h3 class="text-lg font-bold text-white flex items-center gap-2">
+                            <span>🧮 邊緣 MCU 資源需求即時估算器</span>
+                        </h3>
+                        <span class="text-xs text-indigo-400 font-mono">Interactive Tool</span>
+                    </div>
+
+                    <!-- Configuration Options -->
+                    <div class="space-y-3 text-xs">
+                        <label class="block font-semibold text-slate-300">選擇連網傳輸層：</label>
+                        <div class="grid grid-cols-2 gap-2">
+                            <button type="button" onclick="setRadio('thread')" id="opt-thread" class="p-2.5 rounded border border-indigo-500 bg-indigo-600/30 text-white font-semibold text-center transition-all">
+                                Thread (802.15.4)
+                            </button>
+                            <button type="button" onclick="setRadio('wifi')" id="opt-wifi" class="p-2.5 rounded border border-slate-700 bg-slate-800 text-slate-300 text-center transition-all">
+                                Wi-Fi (802.11)
+                            </button>
+                        </div>
+
+                        <div class="pt-2 space-y-2">
+                            <label class="block font-semibold text-slate-300">功能模組勾選：</label>
+                            
+                            <label class="flex items-center space-x-2.5 cursor-pointer">
+                                <input type="checkbox" id="chk-ota" checked onchange="recalculateHW()" class="rounded text-indigo-500 focus:ring-indigo-400">
+                                <span>雙分區防呆無線更新 (Dual-bank OTA) <span class="text-amber-400">(+100% Flash)</span></span>
+                            </label>
+
+                            <label class="flex items-center space-x-2.5 cursor-pointer">
+                                <input type="checkbox" id="chk-multiadmin" checked onchange="recalculateHW()" class="rounded text-indigo-500 focus:ring-indigo-400">
+                                <span>高負載 Multi-Admin (同時連線 3+ 個 Fabric) <span class="text-cyan-400">(+64KB RAM)</span></span>
+                            </label>
+
+                            <label class="flex items-center space-x-2.5 cursor-pointer">
+                                <input type="checkbox" id="chk-psram" onchange="recalculateHW()" class="rounded text-indigo-500 focus:ring-indigo-400">
+                                <span>具備圖形介面 / 本地 HTTP / Commissioner 功能 <span class="text-emerald-400">(需要外掛 PSRAM)</span></span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <!-- Estimation Outcome Dashboard -->
+                    <div class="pt-4 border-t border-slate-800 space-y-4">
+                        <div class="grid grid-cols-2 gap-4">
+                            <div class="bg-slate-800/80 p-3.5 rounded-lg border border-slate-700">
+                                <div class="text-xs text-slate-400">建議 Flash ROM 規格</div>
+                                <div id="est-flash" class="text-2xl font-black text-amber-400 mt-1">2.0 MB</div>
+                                <div id="est-flash-note" class="text-[10px] text-slate-400 mt-1">極限運轉空間足夠</div>
+                            </div>
+                            <div class="bg-slate-800/80 p-3.5 rounded-lg border border-slate-700">
+                                <div class="text-xs text-slate-400">建議 SRAM / PSRAM 規格</div>
+                                <div id="est-ram" class="text-2xl font-black text-indigo-400 mt-1">384 KB</div>
+                                <div id="est-ram-note" class="text-[10px] text-slate-400 mt-1">內部 SRAM 即足夠</div>
+                            </div>
+                        </div>
+
+                        <div id="hw-warning" class="hidden p-2.5 bg-amber-500/10 border border-amber-500/30 text-amber-300 text-xs rounded">
+                            ⚠️ 注意：此配置下，內部 SRAM 動態分配記憶體壓力較大，開發時請避免堆疊溢位 (Stack Overflow)。
+                        </div>
+                    </div>
+                </div>
+
+                <!-- MCU Comparative Table & Breakdown -->
+                <div class="lg:col-span-6 space-y-6">
+                    <div class="bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                        <h3 class="text-lg font-bold text-slate-800">📊 Flash 內部記憶體配置剖析</h3>
+                        <div class="chart-container" style="height: 220px;">
+                            <canvas id="memoryChart"></canvas>
+                        </div>
+                    </div>
+
+                    <div class="bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3">
+                        <h4 class="text-xs font-bold text-slate-700 uppercase tracking-wider">主流 SoC / MCU 晶片選型參考</h4>
+                        <div class="overflow-x-auto">
+                            <table class="w-full text-left text-xs text-slate-600">
+                                <thead class="bg-slate-100 text-slate-800 font-semibold border-b border-slate-200">
+                                    <tr>
+                                        <th class="p-2">晶片廠商</th>
+                                        <th class="p-2">系列/型號</th>
+                                        <th class="p-2">Flash / RAM</th>
+                                        <th class="p-2">關鍵技術優勢</th>
+                                    </tr>
+                                </thead>
+                                <tbody class="divide-y divide-slate-100 font-mono">
+                                    <tr>
+                                        <td class="p-2 font-bold text-slate-800">Silicon Labs</td>
+                                        <td class="p-2 text-indigo-600">EFR32MG24</td>
+                                        <td class="p-2">1.5MB / 256KB</td>
+                                        <td class="p-2 font-sans text-[11px]">低功耗首選，Secure Vault 硬體加密</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="p-2 font-bold text-slate-800">Espressif</td>
+                                        <td class="p-2 text-indigo-600">ESP32-C6</td>
+                                        <td class="p-2">外掛 (4MB+) / 512KB</td>
+                                        <td class="p-2 font-sans text-[11px]">整合 Wi-Fi 6 + Thread + BLE 5</td>
+                                    </tr>
+                                    <tr>
+                                        <td class="p-2 font-bold text-slate-800">STMicro</td>
+                                        <td class="p-2 text-indigo-600">STM32WBA</td>
+                                        <td class="p-2">最高 1MB / 128KB</td>
+                                        <td class="p-2 font-sans text-[11px]">專利功耗優化，工控等級穩定度</td>
+                                    </tr>
+                                </tbody>
+                            </table>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 4: SECURITY & COMMISSIONING -->
+        <section id="security" class="space-y-6">
+            <div class="border-b border-slate-200 pb-4">
+                <h2 class="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                    <span class="text-indigo-600">04.</span> 零信任安全機制與雙階段配網
+                </h2>
+                <p class="text-slate-600 mt-1">
+                    Matter 徹底杜絕明文傳輸與預設密碼，採用嚴謹的公鑰基礎設施 (PKI) 與 DCL 區塊鏈驗證。深入了解 PASE (密碼驗證) 與 CASE (憑證驗證) 的切換流程。
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- Commissioning Step Interactive Display -->
+                <div class="lg:col-span-7 bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                    <h3 class="text-lg font-bold text-slate-800">🔄 設備配網 (Commissioning) 雙階段互動示範</h3>
+
+                    <!-- Interactive Step Bar -->
+                    <div class="grid grid-cols-3 gap-2 text-center text-xs font-semibold">
+                        <button onclick="setCommStep(1)" id="cstep-1" class="p-2 rounded bg-indigo-600 text-white shadow-sm transition-all">
+                            1. DCL & PASE 階段
+                        </button>
+                        <button onclick="setCommStep(2)" id="cstep-2" class="p-2 rounded bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all">
+                            2. 網路憑證發放
+                        </button>
+                        <button onclick="setCommStep(3)" id="cstep-3" class="p-3 rounded bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all">
+                            3. CASE 常態會話
+                        </button>
+                    </div>
+
+                    <!-- Step Detail Panel -->
+                    <div id="comm-detail-panel" class="p-5 bg-slate-50 rounded-xl border border-slate-200 space-y-3 min-h-[220px]">
+                        <!-- Dynamic Content Inject -->
+                    </div>
+                </div>
+
+                <!-- Security PKI & CRA Regulatory Compliance -->
+                <div class="lg:col-span-5 bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                    <h3 class="text-lg font-bold text-slate-800">🛡️ 安全憑證鏈與國際資安合規</h3>
+                    
+                    <div class="p-3.5 bg-slate-900 text-slate-200 rounded-lg space-y-2 text-xs font-mono">
+                        <div class="text-amber-400 font-bold font-sans">📜 設備憑證金字塔 (PKI Chain)</div>
+                        <div class="pl-2 border-l-2 border-indigo-500 space-y-1">
+                            <div>🏛️ PAA (Product Attestation Authority) - CSA 根憑證</div>
+                            <div class="pl-2">🏭 PAI (Product Attestation Intermediate) - 製造商憑證</div>
+                            <div class="pl-4 text-emerald-400">🔑 DAC (Device Attestation Certificate) - 獨一無二設備碼</div>
+                        </div>
+                    </div>
+
+                    <div class="p-3.5 bg-amber-50 border border-amber-200 text-amber-900 rounded-lg space-y-1.5 text-xs">
+                        <div class="font-bold flex items-center justify-between">
+                            <span>⚖️ 歐盟 Cyber Resilience Act (CRA) 應對</span>
+                            <span class="bg-amber-200 px-1.5 py-0.5 rounded text-[10px]">Product Security 1.1</span>
+                        </div>
+                        <p class="text-amber-800">
+                            最新學術漏洞測試 (如 ThreadFuzzer) 揭露了底層 MLE 層的潛在風險。Matter 規範要求廠商具備硬體信任根 (Root of Trust) 與 24 小時漏洞修補 OTA 能力，以滿足全球法規。
+                        </p>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 5: PLATFORM INTEGRATION & BRIDGING -->
+        <section id="platforms" class="space-y-6">
+            <div class="border-b border-slate-200 pb-4">
+                <h2 class="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                    <span class="text-indigo-600">05.</span> 智慧平台整合與舊設備橋接技術
+                </h2>
+                <p class="text-slate-600 mt-1">
+                    如何在 Apple Home、Google Home 與 Home Assistant 之間無縫共存？了解增強型配網視窗 (ECW) 與 Zigbee / Z-Wave 的 Unify SDK 橋接機制。
+                </p>
+            </div>
+
+            <div class="grid grid-cols-1 lg:grid-cols-12 gap-6">
+                <!-- ECW Workflow Explorer -->
+                <div class="lg:col-span-6 bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                    <h3 class="text-lg font-bold text-slate-800">🔗 ECW (增強型配網視窗) 跨平台分享流程</h3>
+                    <p class="text-xs text-slate-600">
+                        當設備已加入 Apple Home 後，欲將其分享至 Home Assistant 時，無需重新觸碰實體條碼，流程如下：
+                    </p>
+
+                    <div class="space-y-2.5 text-xs">
+                        <div class="p-3 bg-slate-50 border-l-4 border-indigo-600 rounded-r space-y-1">
+                            <span class="font-bold text-indigo-900">步驟 1: 開啟 ECW 視窗</span>
+                            <p class="text-slate-600">原控制器發送 `Administrator Commissioning Cluster` 指令，開啟 180 秒動態 PIN 碼與臨時 PASE 視窗。</p>
+                        </div>
+                        <div class="p-3 bg-slate-50 border-l-4 border-emerald-600 rounded-r space-y-1">
+                            <span class="font-bold text-emerald-900">步驟 2: 第二平台掃描與 PASE</span>
+                            <p class="text-slate-600">Home Assistant 透過 IPv6 mDNS 發現設備，輸入該動態 PIN 碼直接經由 IP 網路建立 PASE 連線。</p>
+                        </div>
+                        <div class="p-3 bg-slate-50 border-l-4 border-amber-600 rounded-r space-y-1">
+                            <span class="font-bold text-amber-900">步驟 3: 頒發第二張 NOC 憑證</span>
+                            <p class="text-slate-600">設備取得 Home Assistant 的 Fabric NOC，完成 Multi-Admin 設定，兩平台即時同步同一真相源。</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Legacy Bridge Mapping Interactive Simulator -->
+                <div class="lg:col-span-6 bg-white p-6 rounded-xl border border-slate-200 shadow-sm space-y-4">
+                    <h3 class="text-lg font-bold text-slate-800">🌉 舊有 Zigbee / Z-Wave 橋接器資料對映 (Data Mapping)</h3>
+                    <p class="text-xs text-slate-600">
+                        Matter Bridge 在網路上呈現為單一 Node，並將下方接掛的 Zigbee 設備暴露為不同的 Endpoint。
+                    </p>
+
+                    <div class="p-4 bg-slate-900 rounded-lg text-slate-100 font-mono text-xs space-y-3">
+                        <div class="text-amber-400 font-bold font-sans">Unify SDK 轉換展示 (Zigbee -> Matter Endpoint)</div>
+                        
+                        <div class="p-2.5 bg-slate-800 rounded border border-slate-700 space-y-1">
+                            <div class="text-indigo-300 font-bold">Matter Bridge (Node ID: 0x99A)</div>
+                            <div class="text-[11px] text-slate-400 pl-3">├─ Endpoint 0: Bridge Utility & Control</div>
+                            <div class="text-[11px] text-emerald-400 pl-3">├─ Endpoint 1: Bridged Device (Zigbee 溫濕度計)</div>
+                            <div class="text-[11px] text-slate-400 pl-6">└─ Cluster: Temperature Measurement (0x0402)</div>
+                            <div class="text-[11px] text-cyan-400 pl-3">└─ Endpoint 2: Bridged Device (Z-Wave 門窗感測器)</div>
+                            <div class="text-[11px] text-slate-400 pl-6">└─ Cluster: Boolean State (0x0045)</div>
+                        </div>
+
+                        <div class="text-[11px] text-slate-400 font-sans">
+                            💡 當 Apple Home 發送 `Read Attribute` 給 Endpoint 1 時，橋接器會在毫秒內翻譯為 Zigbee ZCL 指令並傳回數據。
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </section>
+
+        <!-- SECTION 6: PROTOCOL VERSION TIMELINE -->
+        <section id="timeline" class="space-y-6">
+            <div class="border-b border-slate-200 pb-4">
+                <h2 class="text-2xl font-bold text-slate-900 flex items-center gap-2">
+                    <span class="text-indigo-600">06.</span> 協定版本演進與新興應用領域 (v1.0 - v1.6)
+                </h2>
+                <p class="text-slate-600 mt-1">
+                    CSA 保持每半年一次大改版的節奏。點選下方版本號，探索從基礎照明到大型家電、電動車能源管理 (EVSE) 及網路攝影機的技術演進。
+                </p>
+            </div>
+
+            <!-- Version Filter Tabs -->
+            <div class="flex flex-wrap gap-2 text-xs font-semibold">
+                <button onclick="filterVersion('all')" id="vbtn-all" class="px-3 py-1.5 rounded-full bg-indigo-600 text-white shadow-sm">全部版本</button>
+                <button onclick="filterVersion('1.0')" id="vbtn-1.0" class="px-3 py-1.5 rounded-full bg-slate-200 text-slate-700 hover:bg-slate-300">v1.0 (基礎門檻)</button>
+                <button onclick="filterVersion('1.2')" id="vbtn-1.2" class="px-3 py-1.5 rounded-full bg-slate-200 text-slate-700 hover:bg-slate-300">v1.2 (白色家電)</button>
+                <button onclick="filterVersion('1.3')" id="vbtn-1.3" class="px-3 py-1.5 rounded-full bg-slate-200 text-slate-700 hover:bg-slate-300">v1.3 (能源管理)</button>
+                <button onclick="filterVersion('1.4')" id="vbtn-1.4" class="px-3 py-1.5 rounded-full bg-slate-200 text-slate-700 hover:bg-slate-300">v1.4 (HRAP & 儲能)</button>
+                <button onclick="filterVersion('1.5')" id="vbtn-1.5" class="px-3 py-1.5 rounded-full bg-slate-200 text-slate-700 hover:bg-slate-300">v1.5 (安防攝影機)</button>
+                <button onclick="filterVersion('1.6')" id="vbtn-1.6" class="px-3 py-1.5 rounded-full bg-slate-200 text-slate-700 hover:bg-slate-300">v1.6 (NFC & Joint Fabric)</button>
+            </div>
+
+            <!-- Dynamic Version Timeline Grid -->
+            <div id="version-card-container" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                <!-- Cards injected dynamically by JavaScript -->
+            </div>
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-slate-900 text-slate-400 py-8 border-t border-slate-800 mt-12 text-center text-xs">
+        <div class="max-w-7xl mx-auto px-4 space-y-2">
+            <p>Matter 協定深度研究報告技術互動導覽系統</p>
+            <p class="text-slate-600">內容基於 CSA (Connectivity Standards Alliance) 規範、學術論文與業界實戰經驗彙編。</p>
+        </div>
+    </footer>
+
+    <!-- JavaScript Logic -->
+    <script>
+        // Global State & Data
+        const versionData = [
+            {
+                version: "1.0",
+                date: "2022 / 10",
+                title: "基礎架構奠定",
+                badge: "Core Framework",
+                color: "indigo",
+                features: ["燈光照明與智慧插座", "門鎖與 HVAC 恆溫器", "基礎感測器 (門窗/動態)", "媒體播放與 TVs 控制"]
+            },
+            {
+                version: "1.1",
+                date: "2023 / 05",
+                title: "平台除錯與低功耗優化",
+                badge: "Maintenance",
+                color: "slate",
+                features: ["休眠設備 (SED) 穩定度提升", "配網測試套件 SDK 優化", "未新增設備類型，專注穩定性"]
+            },
+            {
+                version: "1.2",
+                date: "2023 / 10",
+                title: "大型白色家電跨入",
+                badge: "Home Appliances",
+                color: "blue",
+                features: ["冰箱、洗碗機與洗衣機", "掃地機器人控制規範", "煙霧警報器與空氣品質 (PM2.5)"]
+            },
+            {
+                version: "1.3",
+                date: "2024 / 05",
+                title: "能源管理與 Matter Casting",
+                badge: "Energy & Media",
+                color: "emerald",
+                features: ["電動車充電樁 (EVSE) 叢集", "耗電量預測 (Power Forecast)", "智慧水閥與漏水偵測", "Matter Casting 影音跨屏投射"]
+            },
+            {
+                version: "1.4",
+                date: "2024 / 11",
+                title: "網通基礎設施與增強多管理",
+                badge: "Network & Storage",
+                color: "amber",
+                features: ["太陽能逆變器與儲能 (BESS)", "HRAP (家用路由器與存取點)", "Enhanced Multi-Admin 自動同步", "LIT 長期待機電池協定"]
+            },
+            {
+                version: "1.5",
+                date: "2025 / 11",
+                title: "安防監控與動態電價",
+                badge: "Security Cameras",
+                color: "cyan",
+                features: ["網路攝影機 (Cameras) 規範", "WebRTC 雙向語音門鈴", "土壤濕度感測器", "動態電網費率與碳排對接"]
+            },
+            {
+                version: "1.6",
+                date: "2026 / 06",
+                title: "NFC 無電預配網與 Joint Fabric",
+                badge: "Joint Fabric & NFC",
+                color: "violet",
+                features: ["NFC 無電源預配網 (批量部署)", "Joint Fabric 聯合網域控制", "歐盟 CRA (Product Security 1.1)", "多串流高階影像傳輸"]
+            }
+        ];
+
+        let selectedRadio = 'thread';
+        let commStep = 1;
+
+        // Initialize Charts & App on DOM Loaded
+        document.addEventListener("DOMContentLoaded", () => {
+            initLatencyChart();
+            initMemoryChart();
+            renderTimeline('all');
+            selectCluster('lock');
+            recalculateHW();
+            setCommStep(1);
+        });
+
+        // Toggle Data Model Tree Detail
+        function toggleDM(elementId) {
+            const el = document.getElementById(elementId);
+            if (el) {
+                el.classList.toggle('hidden');
+            }
+        }
+
+        // Select Cluster in Data Model Inspector
+        function selectCluster(type) {
+            const content = document.getElementById('cd-content');
+            const title = document.getElementById('cd-title');
+            const desc = document.getElementById('cd-desc');
+            const attrs = document.getElementById('cd-attrs');
+            const cmds = document.getElementById('cd-cmds');
+            const im = document.getElementById('cd-im');
+
+            content.classList.remove('hidden');
+
+            if (type === 'lock') {
+                title.innerText = "Door Lock Server Cluster (0x0101)";
+                desc.innerText = "管理智慧門鎖的物理鎖舌狀態與安全解鎖驗證。";
+                attrs.innerHTML = `
+                    <li>• LockState: 0 (Unlocked), 1 (Locked) [Single Source]</li>
+                    <li>• LockType: Deadbolt (閂鎖)</li>
+                    <li>• AutoRelockTime: 30 秒</li>
+                `;
+                cmds.innerHTML = `
+                    <li class="text-emerald-700">• LockDoor() ➔ 回傳 status</li>
+                    <li class="text-emerald-700">• UnlockDoor(PINCode) ➔ 驗證密碼</li>
+                `;
+                im.innerText = "支援 Write (變更設定) 與 Subscribe (當實體鑰匙開鎖時主動 Push 通知)。";
+            } else if (type === 'power') {
+                title.innerText = "Power Source Cluster (0x002F)";
+                desc.innerText = "回報電池電量、電壓與充電狀態之感測器叢集。";
+                attrs.innerHTML = `
+                    <li>• BatPercentRemaining: 85 (即 42.5%)</li>
+                    <li>• BatChargeLevel: OK</li>
+                `;
+                cmds.innerHTML = `
+                    <li class="text-slate-500">• (無寫入命令 - 純唯讀資料源)</li>
+                `;
+                im.innerText = "控制器透過 Subscribe 訂閱；當電量低於 10% 時觸發低電量 Event。";
+            }
+        }
+
+        // Multi-Admin Fabric Simulator Button
+        function toggleFabric(platform) {
+            const status = document.getElementById('fabric-status');
+            if (platform === 'apple') {
+                status.innerText = "Apple Home (Fabric 1) 發送 LockDoor() 命令 ➔ 鎖舌狀態寫入為 Locked。";
+            } else {
+                status.innerText = "Google Home (Fabric 2) 接收到 Subscribe 推送 ➔ 介面即時同步顯示為 Locked。";
+            }
+        }
+
+        // Hardware Estimator Calculation
+        function setRadio(type) {
+            selectedRadio = type;
+            document.getElementById('opt-thread').className = type === 'thread' 
+                ? 'p-2.5 rounded border border-indigo-500 bg-indigo-600/30 text-white font-semibold text-center transition-all'
+                : 'p-2.5 rounded border border-slate-700 bg-slate-800 text-slate-300 text-center transition-all';
+            document.getElementById('opt-wifi').className = type === 'wifi' 
+                ? 'p-2.5 rounded border border-indigo-500 bg-indigo-600/30 text-white font-semibold text-center transition-all'
+                : 'p-2.5 rounded border border-slate-700 bg-slate-800 text-slate-300 text-center transition-all';
+            recalculateHW();
+        }
+
+        function recalculateHW() {
+            const ota = document.getElementById('chk-ota').checked;
+            const multiadmin = document.getElementById('chk-multiadmin').checked;
+            const psram = document.getElementById('chk-psram').checked;
+
+            let flash = 1.2; // Base Matter stack (MB)
+            let ram = 256;  // Base SRAM (KB)
+
+            if (selectedRadio === 'wifi') flash += 0.5;
+            if (ota) flash *= 2.0; // Dual bank double
+            if (multiadmin) ram += 64;
+            if (psram) ram += 256;
+
+            const flashEl = document.getElementById('est-flash');
+            const ramEl = document.getElementById('est-ram');
+            const ramNote = document.getElementById('est-ram-note');
+            const warning = document.getElementById('hw-warning');
+
+            flashEl.innerText = flash.toFixed(1) + " MB";
+            ramEl.innerText = ram + " KB";
+
+            if (ram > 350 && !psram) {
+                warning.classList.remove('hidden');
+                ramNote.innerText = "建議選擇 512KB SRAM 規格 MCU";
+            } else {
+                warning.classList.add('hidden');
+                ramNote.innerText = psram ? "需搭配外掛 PSRAM 晶片" : "內部 SRAM 即足夠";
+            }
+
+            updateMemoryChart(flash, ram);
+        }
+
+        // Commissioning Step Interactive Display
+        function setCommStep(step) {
+            commStep = step;
+            const panel = document.getElementById('comm-detail-panel');
+            
+            for (let i = 1; i <= 3; i++) {
+                const btn = document.getElementById(`cstep-${i}`);
+                if (i === step) {
+                    btn.className = "p-2.5 rounded bg-indigo-600 text-white shadow-sm transition-all";
+                } else {
+                    btn.className = "p-2.5 rounded bg-slate-100 text-slate-600 hover:bg-slate-200 transition-all";
+                }
+            }
+
+            if (step === 1) {
+                panel.innerHTML = `
+                    <div class="space-y-2 text-xs">
+                        <div class="font-bold text-indigo-900 text-sm">步驟 1: DCL 查驗與 PASE (BLE 建立)</div>
+                        <p class="text-slate-600">• 手機 App 掃描設備上的 27 位 Setup QR Code (包含 Passcode 與 Discriminator)。</p>
+                        <p class="text-slate-600">• 透過藍牙 BLE 建立連線，執行 <strong>SPAKE2+ 加密演算法</strong>。密碼明文絕不空中傳輸。</p>
+                        <p class="text-slate-600">• 驗證 DAC 憑證鏈，並對比 DCL 區塊鏈帳本，確認為 CSA 官方認證之正版硬體。</p>
+                    </div>
+                `;
+            } else if (step === 2) {
+                panel.innerHTML = `
+                    <div class="space-y-2 text-xs">
+                        <div class="font-bold text-emerald-900 text-sm">步驟 2: 傳輸網路憑證與 NOC 簽發</div>
+                        <p class="text-slate-600">• 控制器經由 PASE 加密通道下發家庭 Wi-Fi SSID/密碼 或 Thread Network Key。</p>
+                        <p class="text-slate-600">• 控制器 CA 為該設備簽發一張專屬於本 Fabric 的 <strong>NOC (Node Operational Certificate)</strong>。</p>
+                        <p class="text-slate-600">• 設備切換至 IP 網路 (Wi-Fi/Thread)，隨即關閉 BLE 藍牙廣播。</p>
+                    </div>
+                `;
+            } else {
+                panel.innerHTML = `
+                    <div class="space-y-2 text-xs">
+                        <div class="font-bold text-amber-900 text-sm">步驟 3: CASE 通訊與 ACL 存取控制</div>
+                        <p class="text-slate-600">• 後續日常操作完全採用 <strong>CASE (TLS 1.3 + NOC 雙向認證)</strong>。</p>
+                        <p class="text-slate-600">• 每筆命令發起時，設備皆會比對內部 ACL (存取控制清單)，確保該 Node ID 具備 Manage 或 Operate 權限。</p>
+                    </div>
+                `;
+            }
+        }
+
+        // Timeline Version Filter
+        function filterVersion(ver) {
+            const buttons = ["all", "1.0", "1.2", "1.3", "1.4", "1.5", "1.6"];
+            buttons.forEach(b => {
+                const btn = document.getElementById(`vbtn-${b}`);
+                if (b === ver) {
+                    btn.className = "px-3 py-1.5 rounded-full bg-indigo-600 text-white shadow-sm";
+                } else {
+                    btn.className = "px-3 py-1.5 rounded-full bg-slate-200 text-slate-700 hover:bg-slate-300";
+                }
+            });
+            renderTimeline(ver);
+        }
+
+        function renderTimeline(ver) {
+            const container = document.getElementById('version-card-container');
+            container.innerHTML = "";
+
+            const filtered = ver === 'all' ? versionData : versionData.filter(v => v.version === ver);
+
+            filtered.forEach(item => {
+                const card = document.createElement('div');
+                card.className = "bg-white p-5 rounded-xl border border-slate-200 shadow-sm space-y-3 flex flex-col justify-between hover:border-indigo-300 transition-all";
+                
+                let listHtml = item.features.map(f => `<li class="flex items-center gap-1.5"><span class="text-indigo-500">•</span> ${f}</li>`).join('');
+
+                card.innerHTML = `
+                    <div class="space-y-2">
+                        <div class="flex items-center justify-between">
+                            <span class="text-xs font-bold font-mono px-2 py-0.5 bg-indigo-100 text-indigo-800 rounded">v${item.version}</span>
+                            <span class="text-xs text-slate-400 font-mono">${item.date}</span>
+                        </div>
+                        <h4 class="font-bold text-slate-900 text-base">${item.title}</h4>
+                        <ul class="text-xs text-slate-600 space-y-1 pt-1 font-sans">
+                            ${listHtml}
+                        </ul>
+                    </div>
+                    <div class="pt-3 border-t border-slate-100 flex items-center justify-between">
+                        <span class="text-[10px] font-semibold uppercase text-slate-400 tracking-wider">${item.badge}</span>
+                        <span class="text-xs text-indigo-600 font-semibold cursor-pointer hover:underline" onclick="alert('v${item.version} 詳細規範可參考 CSA 官方技術白皮書。')">技術細節 ➔</span>
+                    </div>
+                `;
+                container.appendChild(card);
+            });
+        }
+
+        // CHART.JS INITIALIZATIONS
+        let latencyChartInstance = null;
+        let memoryChartInstance = null;
+
+        function initLatencyChart() {
+            const ctx = document.getElementById('latencyChart').getContext('2d');
+            latencyChartInstance = new Chart(ctx, {
+                type: 'line',
+                data: {
+                    labels: ['5 個節點', '15 個節點', '30 個節點', '50 個節點 (高併發)'],
+                    datasets: [
+                        {
+                            label: 'Matter over Thread (IPv6 Mesh)',
+                            data: [120, 180, 240, 310],
+                            borderColor: '#2563eb',
+                            backgroundColor: 'rgba(37, 99, 235, 0.1)',
+                            fill: true,
+                            tension: 0.3,
+                            borderWidth: 2.5
+                        },
+                        {
+                            label: '傳統 Zigbee (Centralized Hub)',
+                            data: [90, 210, 580, 1250],
+                            borderColor: '#f59e0b',
+                            backgroundColor: 'rgba(245, 158, 11, 0.05)',
+                            borderDash: [5, 5],
+                            fill: true,
+                            tension: 0.3,
+                            borderWidth: 2
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    plugins: {
+                        legend: {
+                            position: 'top',
+                            labels: { font: { size: 11, family: 'sans-serif' } }
+                        },
+                        tooltip: {
+                            callbacks: {
+                                label: function(context) {
+                                    return context.dataset.label + ': ' + context.parsed.y + ' ms';
+                                }
+                            }
+                        }
+                    },
+                    scales: {
+                        y: {
+                            title: { display: true, text: '端到端延遲 (ms)', font: { size: 11 } },
+                            grid: { color: '#f1f5f9' }
+                        },
+                        x: {
+                            grid: { display: false }
+                        }
+                    }
+                }
+            });
+        }
+
+        function initMemoryChart() {
+            const ctx = document.getElementById('memoryChart').getContext('2d');
+            memoryChartInstance = new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['估算 Flash (MB)', '估算 RAM (KB)'],
+                    datasets: [
+                        {
+                            label: 'Matter 核心與網路堆疊',
+                            data: [1.2, 192],
+                            backgroundColor: '#3b82f6'
+                        },
+                        {
+                            label: '防呆雙分區 OTA & 加密鏈',
+                            data: [0.8, 64],
+                            backgroundColor: '#f59e0b'
+                        },
+                        {
+                            label: '用戶應用層與 Multi-Fabric',
+                            data: [0.4, 64],
+                            backgroundColor: '#10b981'
+                        }
+                    ]
+                },
+                options: {
+                    responsive: true,
+                    maintainAspectRatio: false,
+                    indexAxis: 'y',
+                    plugins: {
+                        legend: { position: 'bottom', labels: { font: { size: 10 } } }
+                    },
+                    scales: {
+                        x: { stacked: true, grid: { color: '#f1f5f9' } },
+                        y: { stacked: true, grid: { display: false } }
+                    }
+                }
+            });
+        }
+
+        function updateMemoryChart(flash, ram) {
+            if (!memoryChartInstance) return;
+            const coreFlash = 1.2;
+            const otaFlash = flash > 2.0 ? flash - 1.6 : 0.8;
+            const appFlash = Math.max(0.2, flash - coreFlash - otaFlash);
+
+            memoryChartInstance.data.datasets[0].data = [coreFlash, 192];
+            memoryChartInstance.data.datasets[1].data = [otaFlash, 64];
+            memoryChartInstance.data.datasets[2].data = [appFlash, Math.max(32, ram - 256)];
+            memoryChartInstance.update();
+        }
+    </script>
+</body>
+</html>
