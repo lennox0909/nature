@@ -15,22 +15,18 @@ interface Link extends d3.SimulationLinkDatum<Node> {
 export default function App() {
   const svgRef = useRef<SVGSVGElement>(null);
   const [density, setDensity] = useState<number>(0.5);
-  const [affectedNodes, setAffectedNodes] = useState<number>(0);
-  const [systemLoad, setSystemLoad] = useState<string>('Normal');
 
-  // D3 圖表邏輯
   useEffect(() => {
     if (!svgRef.current) return;
     const width = 800;
     const height = 400;
     const svg = d3.select(svgRef.current).attr('viewBox', `0 0 ${width} ${height}`);
     svg.selectAll('*').remove();
-    setAffectedNodes(0);
-    setSystemLoad('Normal');
 
     const nodes: Node[] = Array.from({ length: 40 }, (_, i) => ({ id: `n${i}`, isCongested: false }));
     const links: Link[] = [];
 
+    // 建立網格狀連線與隨機捷徑 (依賴 density 滑桿)
     const cols = 8;
     const rows = 5;
     for (let i = 0; i < nodes.length; i++) {
@@ -49,18 +45,15 @@ export default function App() {
       .force('center', d3.forceCenter(width / 2, height / 2));
 
     const link = svg.append('g').selectAll('line').data(links).enter().append('line')
-      .attr('stroke', '#4ade80') 
+      .attr('stroke', '#4ade80') // Tailwind emerald-400
       .attr('stroke-width', 2)
       .attr('class', 'road-link');
 
     const node = svg.append('g').selectAll('circle').data(nodes).enter().append('circle')
       .attr('r', 6)
-      .attr('fill', '#94a3b8') 
-      .attr('class', 'road-node cursor-pointer')
-      .attr('id', d => d.id)
-      .on('click', function(event, d) {
-        triggerCongestionFromNode(d.id);
-      });
+      .attr('fill', '#94a3b8') // Tailwind slate-400
+      .attr('class', 'road-node')
+      .attr('id', d => d.id);
 
     simulation.on('tick', () => {
       link.attr('x1', (d: any) => d.source.x).attr('y1', (d: any) => d.source.y)
@@ -71,22 +64,20 @@ export default function App() {
     return () => simulation.stop();
   }, [density]);
 
-  // BFS 擴散邏輯
-  const triggerCongestionFromNode = (startNodeId: string) => {
+  const triggerCongestion = () => {
     if (!svgRef.current) return;
     const svg = d3.select(svgRef.current);
+    
+    // 實作 GNN Message Passing (漣漪效應擴散)
+    const startNodeId = 'n20';
     const visitedNodes = new Set([startNodeId]);
     let currentLevel = [startNodeId];
-    let affectedCount = 1;
 
-    setSystemLoad('Warning');
     svg.select(`#${startNodeId}`).transition().duration(300).attr('fill', '#ef4444');
-    setAffectedNodes(affectedCount);
 
     const interval = setInterval(() => {
       if (currentLevel.length === 0) {
         clearInterval(interval);
-        if (affectedCount > 15) setSystemLoad('Critical');
         return;
       }
       
@@ -102,24 +93,25 @@ export default function App() {
           d3.select(svgRef.current).select(`#${targetId}`).transition().delay(150).duration(300).attr('fill', '#ef4444');
           visitedNodes.add(targetId);
           nextLevel.push(targetId);
-          affectedCount++;
         } else if (isTargetCurrent && !visitedNodes.has(sourceId)) {
           d3.select(this as any).transition().duration(300).attr('stroke', '#ef4444');
           d3.select(svgRef.current).select(`#${sourceId}`).transition().delay(150).duration(300).attr('fill', '#ef4444');
           visitedNodes.add(sourceId);
           nextLevel.push(sourceId);
-          affectedCount++;
         }
       });
       currentLevel = nextLevel;
-      setAffectedNodes(affectedCount);
     }, 400);
   };
 
-  return (
+return (
+    // 1. 新增最外層滿版容器
     <div className="min-h-screen w-full bg-[#0a0c10] flex items-center justify-center p-4 sm:p-8 box-border">
+      
+      {/* 2. 原 Widget 容器：加入響應式 padding 與 max-w-5xl 延展空間 */}
       <div className="flex flex-col items-center w-full max-w-5xl p-6 sm:p-10 bg-[#0f1115] text-white rounded-2xl shadow-2xl font-sans">
         
+        {/* 頂部標題列：小螢幕時標題置中，按鈕維持右側 */}
         <div className="flex flex-row justify-between items-center w-full mb-4 gap-4">
           <h1 className="text-xl sm:text-3xl font-semibold tracking-wide">GNN Traffic Congestion Simulator</h1>
           <button 
@@ -131,26 +123,27 @@ export default function App() {
         </div>
         <p className="text-sm text-gray-400 mb-8 w-full text-left sm:text-center">Click any intersection node or press 'Trigger Congestion' to simulate traffic failure</p>
 
+        {/* D3.js 圖表渲染區：加入 w-full 與 h-auto 確保 SVG 等比例縮放 */}
         <svg ref={svgRef} className="w-full h-auto max-h-[400px] bg-transparent mb-10" />
 
+        {/* 中間數據儀表板 */}
         <div className="flex w-full justify-center gap-8 sm:gap-16 mb-8 text-center">
           <div>
             <div className="text-xs text-gray-500 font-bold tracking-widest mb-2">AFFECTED NODES</div>
-            <div className="text-2xl font-semibold">{affectedNodes}</div>
+            <div className="text-2xl font-semibold">0</div>
           </div>
           <div className="w-px bg-gray-700"></div>
           <div>
             <div className="text-xs text-gray-500 font-bold tracking-widest mb-2">SYSTEM LOAD</div>
-            <div className={`text-2xl font-semibold ${systemLoad === 'Critical' ? 'text-red-400' : systemLoad === 'Warning' ? 'text-yellow-400' : 'text-blue-100'}`}>
-              {systemLoad}
-            </div>
+            <div className="text-2xl font-semibold text-blue-100">Normal</div>
           </div>
         </div>
 
+        {/* 底部控制列：加入 flex-wrap 讓小螢幕自動折行 */}
         <div className="flex flex-wrap md:flex-nowrap w-full gap-4 sm:gap-6 items-center bg-[#1a1c23] p-4 rounded-xl">
           <button
             className="w-full md:w-auto md:flex-1 py-4 px-6 bg-[#2d3039] hover:bg-[#3a3e49] text-gray-200 rounded-xl font-medium transition-colors"
-            onClick={() => triggerCongestionFromNode('n20')}
+            onClick={triggerCongestion}
           >
             Trigger Congestion
           </button>
@@ -174,4 +167,4 @@ export default function App() {
       </div>
     </div>
   );
-}
+} // 新增這個右大括號來閉合最上方的 export default function App() {
