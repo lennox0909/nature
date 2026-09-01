@@ -60,14 +60,7 @@ npm run dev
 
 - SVG 自適應縮放 (`h-auto max-h-[400px]`)：釋放原本寫死的圖表高度，讓 `D3.js` 根據 `viewBox` 比例隨螢幕寬度自動縮放。
 
-## 8. **Gemini** 對話中取得 `Interactive Widget` 指令
-
-- 直接提供完整版：明確要求「請提供最終完整的 `App.tsx`」，我會將所有圖表邏輯與 UI 綁定好一次輸出，你只需全選並覆蓋檔案即可。
-
-- 模組化拆分：要求將複雜的圖表運算抽離成自訂 Hook（例如 `useGNNGraph`），讓 `App.tsx` 的 `return` 區塊保持純粹且易讀的宣告式結構。
-
 ```typescript
-
   return (
     <div className="min-h-screen w-full bg-[#0a0c10] flex items-center justify-center p-4 sm:p-8 box-border">
       <div className="flex flex-col items-center w-full max-w-5xl p-6 sm:p-10 bg-[#0f1115] text-white rounded-2xl shadow-2xl font-sans">
@@ -130,6 +123,12 @@ npm run dev
 
 } //
 ```
+
+## 8. **Gemini** 對話中取得 `Interactive Widget` 指令
+
+- 直接提供完整版：明確要求「請提供最終完整的 `App.tsx`」，我會將所有圖表邏輯與 UI 綁定好一次輸出，你只需全選並覆蓋檔案即可。
+
+- 模組化拆分：要求將複雜的圖表運算抽離成自訂 Hook（例如 `useGNNGraph`），讓 `App.tsx` 的 `return` 區塊保持純粹且易讀的宣告式結構。
 
 
 
