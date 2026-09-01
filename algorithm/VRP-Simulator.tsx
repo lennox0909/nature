@@ -1,3 +1,6 @@
+// 以下指令安裝套件
+// npm install lucide-react
+
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Play, Pause, RotateCcw, Truck } from 'lucide-react';
 
